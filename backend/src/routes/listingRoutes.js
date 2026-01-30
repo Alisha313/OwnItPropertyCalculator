@@ -5,12 +5,13 @@ const router = express.Router();
 initDb();
 
 /**
- * GET /api/listings?kind=sale|rental&city=&status=&minPrice=&maxPrice=&beds=&baths=&sort=
+ * GET /api/listings?kind=sale|rental&state=&city=&status=&minPrice=&maxPrice=&beds=&baths=&sort=
  * sort options: price_asc, price_desc, beds_desc, baths_desc
  */
 router.get("/", (req, res) => {
   const {
     kind,
+    state,
     city,
     status,
     minPrice,
@@ -27,9 +28,13 @@ router.get("/", (req, res) => {
   const where = ["kind = ?"];
   const params = [kind];
 
+  if (state) {
+    where.push("UPPER(state) = UPPER(?)");
+    params.push(state);
+  }
   if (city) {
-    where.push("LOWER(city) = LOWER(?)");
-    params.push(city);
+    where.push("LOWER(city) LIKE LOWER(?)");
+    params.push(`%${city}%`);
   }
   if (status) {
     where.push("status = ?");
@@ -62,7 +67,7 @@ router.get("/", (req, res) => {
   const orderBy = sortMap[sort] || sortMap.price_asc;
 
   const sql = `
-    SELECT id, kind, type, city, status, price, bedrooms, bathrooms
+    SELECT id, kind, type, city, state, address, description, image_url, status, price, bedrooms, bathrooms, sqft, year_built
     FROM listings
     WHERE ${where.join(" AND ")}
     ORDER BY ${orderBy}
@@ -74,7 +79,7 @@ router.get("/", (req, res) => {
 
 router.get("/:id", (req, res) => {
   const row = db
-    .prepare("SELECT id, kind, type, city, status, price, bedrooms, bathrooms FROM listings WHERE id = ?")
+    .prepare("SELECT id, kind, type, city, state, address, description, image_url, status, price, bedrooms, bathrooms, sqft, year_built FROM listings WHERE id = ?")
     .get(req.params.id);
 
   if (!row) return res.status(404).json({ error: "Listing not found" });
