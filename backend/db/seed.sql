@@ -123,3 +123,8 @@ INSERT OR REPLACE INTO listings (id, kind, type, city, state, address, descripti
 ('R-2058', 'rental', 'Apartment', 'Des Moines', 'IA', '100 Court Ave', 'East Village apartment.', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800', 'active', 1500, 1, 1, 750, 2020),
 ('R-2059', 'rental', 'Apartment', 'Little Rock', 'AR', '100 Main St', 'River Market apartment.', 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800', 'active', 1400, 2, 1, 900, 2016),
 ('R-2060', 'rental', 'Apartment', 'Oklahoma City', 'OK', '200 E Sheridan', 'Bricktown apartment.', 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800', 'active', 1600, 2, 2, 1000, 2018);
+
+-- Subscription Plans
+INSERT OR REPLACE INTO subscription_plans (id, name, billing_cycle, price, features) VALUES
+(1, 'Basic Monthly', 'monthly', 9.99, '["Browse all listings","30-day free trial","Talk to real estate agent","No payment until trial ends","Email reminders before trial expires"]'),
+(2, 'Basic Annual', 'annually', 89.99, '["Browse all listings","30-day free trial","Talk to real estate agent","No payment until trial ends","Email reminders before trial expires","Save $30/year"]');

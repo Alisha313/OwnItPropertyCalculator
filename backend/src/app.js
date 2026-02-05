@@ -6,6 +6,8 @@ import { fileURLToPath } from "url";
 
 import authRoutes from "./routes/authRoutes.js";
 import listingRoutes from "./routes/listingRoutes.js";
+import subscriptionRoutes from "./routes/subscriptionRoutes.js";
+import chatRoutes from "./routes/chatRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +41,8 @@ app.use("/assets", express.static(assetsDir));
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/chat", chatRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => res.json({ ok: true }));

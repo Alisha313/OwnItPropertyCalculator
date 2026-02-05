@@ -23,9 +23,47 @@ router.post("/register", (req, res) => {
     .prepare("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)")
     .run(name, email, hash);
 
-  req.session.user = { id: info.lastInsertRowid, name, email };
+  const userId = info.lastInsertRowid;
 
-  res.json({ ok: true, user: req.session.user });
+  // Automatically start 30-day free trial for new users
+  const trialEnd = new Date();
+  trialEnd.setDate(trialEnd.getDate() + 30);
+
+  db.prepare(`
+    INSERT INTO subscriptions (user_id, status, trial_end)
+    VALUES (?, 'trial', ?)
+  `).run(userId, trialEnd.toISOString());
+
+  // Schedule email reminders for trial
+  const reminderDays = [
+    { type: 'trial_7_days', daysBeforeEnd: 7 },
+    { type: 'trial_3_days', daysBeforeEnd: 3 },
+    { type: 'trial_1_day', daysBeforeEnd: 1 },
+    { type: 'trial_expired', daysBeforeEnd: 0 }
+  ];
+
+  const reminderStmt = db.prepare(`
+    INSERT INTO email_reminders (user_id, reminder_type, scheduled_for)
+    VALUES (?, ?, ?)
+  `);
+
+  for (const reminder of reminderDays) {
+    const scheduledDate = new Date(trialEnd);
+    scheduledDate.setDate(scheduledDate.getDate() - reminder.daysBeforeEnd);
+    reminderStmt.run(userId, reminder.type, scheduledDate.toISOString());
+  }
+
+  req.session.user = { id: userId, name, email };
+
+  res.json({ 
+    ok: true, 
+    user: req.session.user,
+    trial: {
+      started: true,
+      ends: trialEnd.toISOString(),
+      message: "Your 30-day free trial has started! No payment required until trial ends."
+    }
+  });
 });
 
 router.post("/login", (req, res) => {
