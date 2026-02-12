@@ -28,7 +28,7 @@ body{
 }
 
 a{color:inherit;text-decoration:none}
-.container{max-width:var(--max);margin:0 auto;padding:24px}
+.container{max-width:100%;margin:0 auto;padding:24px 40px}
 
 .topbar{
   position:sticky;top:0;z-index:20;
@@ -105,13 +105,13 @@ a{color:inherit;text-decoration:none}
 .card__title{font-size:18px;font-weight:800;margin:0 0 8px}
 .card__muted{color:var(--muted);line-height:1.5}
 
-.grid{display:grid;gap:16px}
+.grid{display:grid;gap:20px;width:100%}
 .grid--2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width: 900px){.grid--2,.grid--3{grid-template-columns:1fr}}
 
 .hero{
-  padding:22px;
+  padding:30px;
   background:
     radial-gradient(700px 220px at 10% 10%, rgba(124,92,255,.28), transparent 60%),
     radial-gradient(700px 220px at 90% 20%, rgba(41,215,255,.20), transparent 60%),
@@ -162,6 +162,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .mortgage-container {
   display: grid;
   gap: 24px;
+  max-width: 100%;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .mortgage-hero {
@@ -736,6 +739,257 @@ tr:hover td{background:rgba(255,255,255,.02)}
 }
 
 /* ==========================================
+   CALCULATOR TYPE SELECTOR
+   ========================================== */
+
+.calc-type-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 600px) {
+  .calc-type-selector {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calc-type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+  border: 2px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.calc-type-btn:hover {
+  border-color: rgba(124,92,255,.3);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  transform: translateY(-2px);
+}
+
+.calc-type-btn--active {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(124,92,255,.15), rgba(124,92,255,.05));
+  box-shadow: 0 8px 30px rgba(124,92,255,.2);
+}
+
+.calc-type-btn__icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.calc-type-btn__label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.calc-type-btn__desc {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.calc-type-btn--active .calc-type-btn__label {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.calc-section {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================
+   RENTAL CALCULATOR STYLES
+   ========================================== */
+
+.rental-affordability {
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.rental-affordability__title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: var(--text);
+}
+
+.rental-affordability__bar {
+  height: 12px;
+  background: rgba(0,0,0,.3);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.rental-affordability__fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: all 0.5s ease;
+  background: linear-gradient(90deg, #6bcb77, #ffd93d);
+}
+
+.rental-affordability__fill--excellent {
+  background: linear-gradient(90deg, #6bcb77, #29d7ff);
+}
+
+.rental-affordability__fill--good {
+  background: linear-gradient(90deg, #6bcb77, #7c5cff);
+}
+
+.rental-affordability__fill--moderate {
+  background: linear-gradient(90deg, #ffd93d, #ffa500);
+}
+
+.rental-affordability__fill--warning {
+  background: linear-gradient(90deg, #ffa500, #ff6b9d);
+}
+
+.rental-affordability__fill--danger {
+  background: linear-gradient(90deg, #ff6b9d, #ff4d6d);
+}
+
+.rental-affordability__info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.rental-affordability__status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rental-affordability__status--excellent {
+  background: rgba(107,203,119,.2);
+  color: #6bcb77;
+}
+
+.rental-affordability__status--good {
+  background: rgba(124,92,255,.2);
+  color: var(--accent);
+}
+
+.rental-affordability__status--moderate {
+  background: rgba(255,217,61,.2);
+  color: #ffd93d;
+}
+
+.rental-affordability__status--warning {
+  background: rgba(255,165,0,.2);
+  color: #ffa500;
+}
+
+.rental-affordability__status--danger {
+  background: rgba(255,77,109,.2);
+  color: #ff4d6d;
+}
+
+.rental-affordability__tip {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.rental-summary-section {
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.rental-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+@media (max-width: 700px) {
+  .rental-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rental-summary-card {
+  background: rgba(0,0,0,.2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.rental-summary-card__icon {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.rental-summary-card__title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: var(--text);
+}
+
+.rental-summary-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rental-breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.rental-breakdown-item strong {
+  color: var(--text);
+}
+
+.rental-breakdown-item--total {
+  padding-top: 10px;
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.rental-breakdown-item--total span,
+.rental-breakdown-item--total strong {
+  color: var(--accent2);
+}
+
+.rental-breakdown-item--note {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* ==========================================
    LISTINGS PAGE STYLES
    ========================================== */
 
@@ -997,6 +1251,353 @@ tr:hover td{background:rgba(255,255,255,.02)}
   .filter-buttons {
     grid-column: span 2;
     justify-content: center;
+  }
+}
+
+/* ========== AI CHAT WIDGET STYLES ========== */
+.chat-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  font-family: var(--font);
+}
+
+.chat-toggle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(124, 92, 255, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.chat-toggle:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 40px rgba(124, 92, 255, 0.5);
+}
+
+.chat-toggle svg {
+  width: 28px;
+  height: 28px;
+  fill: #08102a;
+}
+
+.chat-toggle .notification-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--danger);
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+}
+
+.chat-window {
+  position: absolute;
+  bottom: 75px;
+  right: 0;
+  width: 380px;
+  max-width: calc(100vw - 48px);
+  height: 520px;
+  max-height: calc(100vh - 150px);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+}
+
+.chat-window.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.chat-header {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(124, 92, 255, 0.2), rgba(41, 215, 255, 0.1));
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-header__avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.chat-header__info {
+  flex: 1;
+}
+
+.chat-header__name {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+
+.chat-header__status {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-header__status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #22c55e;
+  border-radius: 50%;
+}
+
+.chat-header__close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.chat-header__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.chat-free-banner {
+  padding: 10px 16px;
+  background: linear-gradient(90deg, rgba(124, 92, 255, 0.15), rgba(41, 215, 255, 0.1));
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--accent2);
+  text-align: center;
+}
+
+.chat-free-banner strong {
+  color: var(--text);
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-message {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  animation: messageSlide 0.3s ease;
+}
+
+@keyframes messageSlide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-message--user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--accent), #9d7fff);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message--agent {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-typing {
+  align-self: flex-start;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  display: flex;
+  gap: 4px;
+}
+
+.chat-typing span {
+  width: 8px;
+  height: 8px;
+  background: var(--muted);
+  border-radius: 50%;
+  animation: typing 1.4s infinite;
+}
+
+.chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+.chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+.chat-input-area {
+  padding: 16px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chat-input:focus {
+  border-color: var(--accent);
+}
+
+.chat-input::placeholder {
+  color: var(--muted);
+}
+
+.chat-send {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.chat-send:hover {
+  transform: scale(1.05);
+}
+
+.chat-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.chat-send svg {
+  width: 20px;
+  height: 20px;
+  fill: #08102a;
+}
+
+.chat-login-prompt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.chat-login-prompt__icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.chat-login-prompt__title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.chat-login-prompt__text {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.chat-expired {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.chat-expired__icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.chat-expired__title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.chat-expired__text {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .chat-widget {
+    bottom: 16px;
+    right: 16px;
+  }
+  
+  .chat-window {
+    width: calc(100vw - 32px);
+    height: calc(100vh - 120px);
+    bottom: 70px;
+    right: -8px;
+  }
+  
+  .chat-toggle {
+    width: 54px;
+    height: 54px;
   }
 }
 

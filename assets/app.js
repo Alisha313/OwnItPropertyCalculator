@@ -492,6 +492,9 @@ function MortgagePage() {
   const el = document.createElement("div");
   el.className = "mortgage-container";
 
+  // Track which calculator is active
+  let activeCalc = "mortgage"; // "mortgage" or "rental"
+
   // Interest rates by state (30-year fixed, as of 2026)
   const stateRates = {
     "AL": { name: "Alabama", rate: 6.85 },
@@ -555,208 +558,420 @@ function MortgagePage() {
   el.innerHTML = `
     <!-- Hero Section -->
     <div class="mortgage-hero">
-      <div class="mortgage-hero__title">🏠 Mortgage Calculator</div>
-      <div class="mortgage-hero__sub">Estimate your monthly payment and see a detailed breakdown of your costs</div>
+      <div class="mortgage-hero__title">🏠 Property Calculator</div>
+      <div class="mortgage-hero__sub">Estimate your monthly payments for buying or renting a property</div>
     </div>
 
-    <!-- Main Layout -->
-    <div class="mortgage-layout">
-      <!-- Input Form -->
-      <div class="mortgage-form">
-        <div class="mortgage-form__title">
-          <span class="mortgage-form__icon">📊</span>
-          Loan Details
-        </div>
-        <div class="mortgage-form__grid">
-          <div class="mortgage-input">
-            <label>Home Price</label>
-            <input id="homePrice" type="number" value="700000" placeholder="$700,000" />
-          </div>
+    <!-- Calculator Type Selector -->
+    <div class="calc-type-selector">
+      <button id="mortgageCalcBtn" class="calc-type-btn calc-type-btn--active" data-type="mortgage">
+        <span class="calc-type-btn__icon">🏦</span>
+        <span class="calc-type-btn__label">Mortgage Calculator</span>
+        <span class="calc-type-btn__desc">Calculate home loan payments</span>
+      </button>
+      <button id="rentalCalcBtn" class="calc-type-btn" data-type="rental">
+        <span class="calc-type-btn__icon">🔑</span>
+        <span class="calc-type-btn__label">Rental Calculator</span>
+        <span class="calc-type-btn__desc">Estimate rental costs & affordability</span>
+      </button>
+    </div>
 
-          <div class="mortgage-input">
-            <label>Down Payment</label>
-            <input id="downPayment" type="number" value="140000" placeholder="$140,000" />
+    <!-- Mortgage Calculator Section -->
+    <div id="mortgageCalcSection" class="calc-section">
+      <!-- Main Layout -->
+      <div class="mortgage-layout">
+        <!-- Input Form -->
+        <div class="mortgage-form">
+          <div class="mortgage-form__title">
+            <span class="mortgage-form__icon">📊</span>
+            Loan Details
           </div>
-
-          <div class="mortgage-input state-select">
-            <label>📍 Select State (Auto-fills Rate)</label>
-            <select id="stateSelect">
-              <option value="">-- Select a State --</option>
-              ${stateOptions}
-            </select>
-          </div>
-
-          <div class="mortgage-form__row">
+          <div class="mortgage-form__grid">
             <div class="mortgage-input">
-              <label>Loan Term</label>
-              <select id="termYears">
-                <option value="30">30 years</option>
-                <option value="20">20 years</option>
-                <option value="15">15 years</option>
-                <option value="10">10 years</option>
+              <label>Home Price</label>
+              <input id="homePrice" type="number" value="700000" placeholder="$700,000" />
+            </div>
+
+            <div class="mortgage-input">
+              <label>Down Payment</label>
+              <input id="downPayment" type="number" value="140000" placeholder="$140,000" />
+            </div>
+
+            <div class="mortgage-input state-select">
+              <label>📍 Select State (Auto-fills Rate)</label>
+              <select id="stateSelect">
+                <option value="">-- Select a State --</option>
+                ${stateOptions}
               </select>
             </div>
-            <div class="mortgage-input">
-              <label>Interest Rate (%)</label>
-              <input id="rate" type="number" step="0.01" value="6.75" placeholder="6.75%" />
-            </div>
-          </div>
 
-          <div class="mortgage-form__row">
-            <div class="mortgage-input">
-              <label>Property Tax (yearly)</label>
-              <input id="tax" type="number" value="12000" placeholder="$12,000" />
-            </div>
-            <div class="mortgage-input">
-              <label>Insurance (yearly)</label>
-              <input id="ins" type="number" value="1800" placeholder="$1,800" />
-            </div>
-          </div>
-
-          <div class="mortgage-form__row">
-            <div class="mortgage-input">
-              <label>Monthly HOA</label>
-              <input id="hoa" type="number" value="0" placeholder="$0" />
-            </div>
-            <div class="mortgage-input">
-              <label>Include PMI?</label>
-              <select id="includePmi">
-                <option value="yes">Yes (if &lt;20% down)</option>
-                <option value="no">No</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="mortgage-input">
-            <label>PMI Rate (annual % of loan)</label>
-            <input id="pmiRate" type="number" step="0.01" value="0.6" placeholder="0.6%" />
-          </div>
-
-          <button id="calcBtn" class="mortgage-btn" type="button">
-            ✨ Calculate Payment
-          </button>
-        </div>
-      </div>
-
-      <!-- Results Panel -->
-      <div class="mortgage-results">
-        <!-- Total Monthly Card -->
-        <div class="mortgage-total-card">
-          <div class="mortgage-total__label">Estimated Monthly Payment</div>
-          <div id="totalMonthly" class="mortgage-total__value">$0</div>
-          <div id="loanSummary" class="mortgage-total__sub">Loan: $0 • 30 years @ 6.75%</div>
-        </div>
-
-        <!-- Donut Chart -->
-        <div class="mortgage-chart">
-          <div class="mortgage-chart__title">Payment Breakdown</div>
-          <div class="mortgage-chart__container">
-            <div class="mortgage-donut">
-              <svg viewBox="0 0 100 100" id="donutChart">
-                <!-- Segments will be inserted here -->
-              </svg>
-              <div class="mortgage-donut__center">
-                <div id="donutCenterValue" class="mortgage-donut__center-value">$0</div>
-                <div class="mortgage-donut__center-label">per month</div>
+            <div class="mortgage-form__row">
+              <div class="mortgage-input">
+                <label>Loan Term</label>
+                <select id="termYears">
+                  <option value="30">30 years</option>
+                  <option value="20">20 years</option>
+                  <option value="15">15 years</option>
+                  <option value="10">10 years</option>
+                </select>
+              </div>
+              <div class="mortgage-input">
+                <label>Interest Rate (%)</label>
+                <input id="rate" type="number" step="0.01" value="6.75" placeholder="6.75%" />
               </div>
             </div>
-            <div id="chartLegend" class="mortgage-legend">
-              <!-- Legend items will be inserted here -->
+
+            <div class="mortgage-form__row">
+              <div class="mortgage-input">
+                <label>Property Tax (yearly)</label>
+                <input id="tax" type="number" value="12000" placeholder="$12,000" />
+              </div>
+              <div class="mortgage-input">
+                <label>Insurance (yearly)</label>
+                <input id="ins" type="number" value="1800" placeholder="$1,800" />
+              </div>
+            </div>
+
+            <div class="mortgage-form__row">
+              <div class="mortgage-input">
+                <label>Monthly HOA</label>
+                <input id="hoa" type="number" value="0" placeholder="$0" />
+              </div>
+              <div class="mortgage-input">
+                <label>Include PMI?</label>
+                <select id="includePmi">
+                  <option value="yes">Yes (if &lt;20% down)</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="mortgage-input">
+              <label>PMI Rate (annual % of loan)</label>
+              <input id="pmiRate" type="number" step="0.01" value="0.6" placeholder="0.6%" />
+            </div>
+
+            <button id="calcBtn" class="mortgage-btn" type="button">
+              ✨ Calculate Payment
+            </button>
+          </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="mortgage-results">
+          <!-- Total Monthly Card -->
+          <div class="mortgage-total-card">
+            <div class="mortgage-total__label">Estimated Monthly Payment</div>
+            <div id="totalMonthly" class="mortgage-total__value">$0</div>
+            <div id="loanSummary" class="mortgage-total__sub">Loan: $0 • 30 years @ 6.75%</div>
+          </div>
+
+          <!-- Donut Chart -->
+          <div class="mortgage-chart">
+            <div class="mortgage-chart__title">Payment Breakdown</div>
+            <div class="mortgage-chart__container">
+              <div class="mortgage-donut">
+                <svg viewBox="0 0 100 100" id="donutChart">
+                  <!-- Segments will be inserted here -->
+                </svg>
+                <div class="mortgage-donut__center">
+                  <div id="donutCenterValue" class="mortgage-donut__center-value">$0</div>
+                  <div class="mortgage-donut__center-label">per month</div>
+                </div>
+              </div>
+              <div id="chartLegend" class="mortgage-legend">
+                <!-- Legend items will be inserted here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Stat Cards -->
+          <div id="breakdownCards" class="mortgage-breakdown">
+            <!-- Breakdown cards will be inserted here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- State Rates Table (Moved Up) -->
+      <div class="mortgage-rates-section">
+        <div class="mortgage-rates-header">
+          <div class="mortgage-rates-title">
+            <span>📍</span> Interest Rates by State (30-Year Fixed)
+          </div>
+          <div class="mortgage-rates-sub">Current average rates across all 50 states + D.C. • Click to apply rate</div>
+        </div>
+        <div class="mortgage-rates-grid" id="stateRatesGrid">
+          <!-- State rates will be populated here -->
+        </div>
+      </div>
+
+      <!-- Info Cards -->
+      <div class="mortgage-info-grid">
+        <div class="mortgage-info-card">
+          <div class="mortgage-info-card__icon">📐</div>
+          <div class="mortgage-info-card__title">How It's Calculated</div>
+          <div class="mortgage-info-card__content">
+            Monthly P&I uses the standard amortization formula:<br/>
+            <strong style="color:var(--accent2);">M = P × [r(1+r)ⁿ] / [(1+r)ⁿ - 1]</strong><br/>
+            Where r = monthly rate, n = total months
+          </div>
+        </div>
+
+        <div class="mortgage-info-card">
+          <div class="mortgage-info-card__icon">🏦</div>
+          <div class="mortgage-info-card__title">Loan Types</div>
+          <ul class="mortgage-info-card__list">
+            <li>Conventional (most common)</li>
+            <li>FHA (lower down payment)</li>
+            <li>VA (for veterans)</li>
+            <li>USDA (rural areas)</li>
+          </ul>
+        </div>
+
+        <div class="mortgage-info-card">
+          <div class="mortgage-info-card__icon">❓</div>
+          <div class="mortgage-info-card__title">What is PMI?</div>
+          <div class="mortgage-info-card__content">
+            Private Mortgage Insurance is typically required when your down payment is less than 20%. It protects the lender if you default on the loan.
+          </div>
+        </div>
+
+        <div class="mortgage-info-card">
+          <div class="mortgage-info-card__icon">💡</div>
+          <div class="mortgage-info-card__title">Pro Tips</div>
+          <ul class="mortgage-info-card__list">
+            <li>20%+ down removes PMI requirement</li>
+            <li>15-year loans have lower rates</li>
+            <li>Extra payments reduce total interest</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Amortization Table (Moved to Bottom) -->
+      <div class="mortgage-amort">
+        <div class="mortgage-amort__header">
+          <div class="mortgage-amort__title">📅 Amortization Schedule</div>
+          <div class="mortgage-amort__stats">
+            <div class="mortgage-amort__stat">
+              <div class="mortgage-amort__stat-label">Total Interest</div>
+              <div id="totalInterest" class="mortgage-amort__stat-value">$0</div>
+            </div>
+            <div class="mortgage-amort__stat">
+              <div class="mortgage-amort__stat-label">Total Cost</div>
+              <div id="totalCost" class="mortgage-amort__stat-value">$0</div>
             </div>
           </div>
         </div>
-
-        <!-- Stat Cards -->
-        <div id="breakdownCards" class="mortgage-breakdown">
-          <!-- Breakdown cards will be inserted here -->
+        <div class="mortgage-amort__table">
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Payment</th>
+                <th>Principal</th>
+                <th>Interest</th>
+                <th>Balance</th>
+                <th>Total Interest</th>
+              </tr>
+            </thead>
+            <tbody id="amRows"></tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- Amortization Table -->
-    <div class="mortgage-amort">
-      <div class="mortgage-amort__header">
-        <div class="mortgage-amort__title">📅 Amortization Schedule</div>
-        <div class="mortgage-amort__stats">
-          <div class="mortgage-amort__stat">
-            <div class="mortgage-amort__stat-label">Total Interest</div>
-            <div id="totalInterest" class="mortgage-amort__stat-value">$0</div>
+    <!-- Rental Calculator Section -->
+    <div id="rentalCalcSection" class="calc-section" style="display: none;">
+      <div class="mortgage-layout">
+        <!-- Rental Input Form -->
+        <div class="mortgage-form">
+          <div class="mortgage-form__title">
+            <span class="mortgage-form__icon">🔑</span>
+            Rental Details
           </div>
-          <div class="mortgage-amort__stat">
-            <div class="mortgage-amort__stat-label">Total Cost</div>
-            <div id="totalCost" class="mortgage-amort__stat-value">$0</div>
+          <div class="mortgage-form__grid">
+            <div class="mortgage-input">
+              <label>Monthly Rent</label>
+              <input id="monthlyRent" type="number" value="2500" placeholder="$2,500" />
+            </div>
+
+            <div class="mortgage-input">
+              <label>Security Deposit</label>
+              <input id="securityDeposit" type="number" value="2500" placeholder="$2,500" />
+            </div>
+
+            <div class="mortgage-form__row">
+              <div class="mortgage-input">
+                <label>Renter's Insurance (yearly)</label>
+                <input id="rentersInsurance" type="number" value="180" placeholder="$180" />
+              </div>
+              <div class="mortgage-input">
+                <label>Parking Fee (monthly)</label>
+                <input id="parkingFee" type="number" value="0" placeholder="$0" />
+              </div>
+            </div>
+
+            <div class="mortgage-form__row">
+              <div class="mortgage-input">
+                <label>Pet Deposit (one-time)</label>
+                <input id="petDeposit" type="number" value="0" placeholder="$0" />
+              </div>
+              <div class="mortgage-input">
+                <label>Pet Rent (monthly)</label>
+                <input id="petRent" type="number" value="0" placeholder="$0" />
+              </div>
+            </div>
+
+            <div class="mortgage-form__row">
+              <div class="mortgage-input">
+                <label>Utilities Estimate (monthly)</label>
+                <input id="utilitiesEstimate" type="number" value="150" placeholder="$150" />
+              </div>
+              <div class="mortgage-input">
+                <label>Lease Term (months)</label>
+                <select id="leaseTerm">
+                  <option value="12">12 months</option>
+                  <option value="6">6 months</option>
+                  <option value="18">18 months</option>
+                  <option value="24">24 months</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="mortgage-input">
+              <label>Your Monthly Income (for affordability)</label>
+              <input id="monthlyIncome" type="number" value="7000" placeholder="$7,000" />
+            </div>
+
+            <button id="rentalCalcBtnCalc" class="mortgage-btn" type="button">
+              ✨ Calculate Rental Costs
+            </button>
+          </div>
+        </div>
+
+        <!-- Rental Results Panel -->
+        <div class="mortgage-results">
+          <!-- Total Monthly Card -->
+          <div class="mortgage-total-card">
+            <div class="mortgage-total__label">Total Monthly Cost</div>
+            <div id="rentalTotalMonthly" class="mortgage-total__value">$0</div>
+            <div id="rentalSummary" class="mortgage-total__sub">Rent + Insurance + Fees + Utilities</div>
+          </div>
+
+          <!-- Affordability Indicator -->
+          <div class="rental-affordability" id="affordabilitySection">
+            <div class="rental-affordability__title">📊 Affordability Check</div>
+            <div id="affordabilityBar" class="rental-affordability__bar">
+              <div class="rental-affordability__fill" style="width: 0%"></div>
+            </div>
+            <div class="rental-affordability__info">
+              <span id="rentPercent">0%</span> of income
+              <span id="affordabilityStatus" class="rental-affordability__status">Good</span>
+            </div>
+            <div id="affordabilityTip" class="rental-affordability__tip"></div>
+          </div>
+
+          <!-- Donut Chart -->
+          <div class="mortgage-chart">
+            <div class="mortgage-chart__title">Cost Breakdown</div>
+            <div class="mortgage-chart__container">
+              <div class="mortgage-donut">
+                <svg viewBox="0 0 100 100" id="rentalDonutChart">
+                  <!-- Segments will be inserted here -->
+                </svg>
+                <div class="mortgage-donut__center">
+                  <div id="rentalDonutCenterValue" class="mortgage-donut__center-value">$0</div>
+                  <div class="mortgage-donut__center-label">per month</div>
+                </div>
+              </div>
+              <div id="rentalChartLegend" class="mortgage-legend">
+                <!-- Legend items will be inserted here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Stat Cards -->
+          <div id="rentalBreakdownCards" class="mortgage-breakdown">
+            <!-- Breakdown cards will be inserted here -->
           </div>
         </div>
       </div>
-      <div class="mortgage-amort__table">
-        <table>
-          <thead>
-            <tr>
-              <th>Month</th>
-              <th>Payment</th>
-              <th>Principal</th>
-              <th>Interest</th>
-              <th>Balance</th>
-              <th>Total Interest</th>
-            </tr>
-          </thead>
-          <tbody id="amRows"></tbody>
-        </table>
-      </div>
-    </div>
 
-    <!-- Info Cards -->
-    <div class="mortgage-info-grid">
-      <div class="mortgage-info-card">
-        <div class="mortgage-info-card__icon">📐</div>
-        <div class="mortgage-info-card__title">How It's Calculated</div>
-        <div class="mortgage-info-card__content">
-          Monthly P&I uses the standard amortization formula:<br/>
-          <strong style="color:var(--accent2);">M = P × [r(1+r)ⁿ] / [(1+r)ⁿ - 1]</strong><br/>
-          Where r = monthly rate, n = total months
+      <!-- Rental Cost Summary -->
+      <div class="rental-summary-section">
+        <div class="mortgage-amort__header">
+          <div class="mortgage-amort__title">📋 Rental Cost Summary</div>
+          <div class="mortgage-amort__stats">
+            <div class="mortgage-amort__stat">
+              <div class="mortgage-amort__stat-label">Move-in Cost</div>
+              <div id="moveInCost" class="mortgage-amort__stat-value">$0</div>
+            </div>
+            <div class="mortgage-amort__stat">
+              <div class="mortgage-amort__stat-label">Yearly Total</div>
+              <div id="yearlyRentalCost" class="mortgage-amort__stat-value">$0</div>
+            </div>
+          </div>
+        </div>
+        <div class="rental-summary-grid">
+          <div class="rental-summary-card">
+            <div class="rental-summary-card__icon">🏠</div>
+            <div class="rental-summary-card__title">Move-in Costs</div>
+            <div id="moveInBreakdown" class="rental-summary-card__content">
+              <!-- Will be populated -->
+            </div>
+          </div>
+          <div class="rental-summary-card">
+            <div class="rental-summary-card__icon">📅</div>
+            <div class="rental-summary-card__title">Lease Term Projection</div>
+            <div id="leaseProjection" class="rental-summary-card__content">
+              <!-- Will be populated -->
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="mortgage-info-card">
-        <div class="mortgage-info-card__icon">🏦</div>
-        <div class="mortgage-info-card__title">Loan Types</div>
-        <ul class="mortgage-info-card__list">
-          <li>Conventional (most common)</li>
-          <li>FHA (lower down payment)</li>
-          <li>VA (for veterans)</li>
-          <li>USDA (rural areas)</li>
-        </ul>
-      </div>
-
-      <div class="mortgage-info-card">
-        <div class="mortgage-info-card__icon">❓</div>
-        <div class="mortgage-info-card__title">What is PMI?</div>
-        <div class="mortgage-info-card__content">
-          Private Mortgage Insurance is typically required when your down payment is less than 20%. It protects the lender if you default on the loan.
+      <!-- Rental Info Cards -->
+      <div class="mortgage-info-grid">
+        <div class="mortgage-info-card">
+          <div class="mortgage-info-card__icon">💰</div>
+          <div class="mortgage-info-card__title">Rent Affordability Rule</div>
+          <div class="mortgage-info-card__content">
+            The 30% rule suggests spending no more than <strong>30% of your gross income</strong> on rent. This ensures you have enough for other expenses.
+          </div>
         </div>
-      </div>
 
-      <div class="mortgage-info-card">
-        <div class="mortgage-info-card__icon">💡</div>
-        <div class="mortgage-info-card__title">Pro Tips</div>
-        <ul class="mortgage-info-card__list">
-          <li>20%+ down removes PMI requirement</li>
-          <li>15-year loans have lower rates</li>
-          <li>Extra payments reduce total interest</li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- State Rates Table -->
-    <div class="mortgage-rates-section">
-      <div class="mortgage-rates-header">
-        <div class="mortgage-rates-title">
-          <span>📍</span> Interest Rates by State (30-Year Fixed)
+        <div class="mortgage-info-card">
+          <div class="mortgage-info-card__icon">📝</div>
+          <div class="mortgage-info-card__title">Before Signing</div>
+          <ul class="mortgage-info-card__list">
+            <li>Read the lease thoroughly</li>
+            <li>Document existing damage</li>
+            <li>Understand renewal terms</li>
+            <li>Know the pet policy</li>
+          </ul>
         </div>
-        <div class="mortgage-rates-sub">Current average rates across all 50 states + D.C.</div>
-      </div>
-      <div class="mortgage-rates-grid" id="stateRatesGrid">
-        <!-- State rates will be populated here -->
+
+        <div class="mortgage-info-card">
+          <div class="mortgage-info-card__icon">🔍</div>
+          <div class="mortgage-info-card__title">Hidden Costs</div>
+          <ul class="mortgage-info-card__list">
+            <li>Application fees ($25-$75)</li>
+            <li>Move-in/out cleaning</li>
+            <li>Late payment fees</li>
+            <li>Early termination fees</li>
+          </ul>
+        </div>
+
+        <div class="mortgage-info-card">
+          <div class="mortgage-info-card__icon">✨</div>
+          <div class="mortgage-info-card__title">Renter Tips</div>
+          <ul class="mortgage-info-card__list">
+            <li>Get renter's insurance</li>
+            <li>Set up auto-pay for rent</li>
+            <li>Keep records of payments</li>
+            <li>Know your tenant rights</li>
+          </ul>
+        </div>
       </div>
     </div>
   `;
@@ -941,9 +1156,211 @@ function MortgagePage() {
   el.querySelector("#calcBtn").addEventListener("click", calc);
   
   // Also calculate on input change for live updates
-  el.querySelectorAll('input, select').forEach(input => {
+  el.querySelectorAll('#mortgageCalcSection input, #mortgageCalcSection select').forEach(input => {
     input.addEventListener('change', calc);
   });
+
+  // -------------------- Rental Calculator Logic --------------------
+  const rentalColors = {
+    rent: '#7c5cff',
+    insurance: '#29d7ff',
+    parking: '#ff6b9d',
+    petRent: '#ffd93d',
+    utilities: '#6bcb77'
+  };
+
+  const rentalDonutChart = el.querySelector("#rentalDonutChart");
+  const rentalChartLegend = el.querySelector("#rentalChartLegend");
+  const rentalBreakdownCards = el.querySelector("#rentalBreakdownCards");
+  const rentalTotalMonthlyEl = el.querySelector("#rentalTotalMonthly");
+  const rentalDonutCenterValue = el.querySelector("#rentalDonutCenterValue");
+  const moveInCostEl = el.querySelector("#moveInCost");
+  const yearlyRentalCostEl = el.querySelector("#yearlyRentalCost");
+  const affordabilityBar = el.querySelector("#affordabilityBar .rental-affordability__fill");
+  const rentPercentEl = el.querySelector("#rentPercent");
+  const affordabilityStatusEl = el.querySelector("#affordabilityStatus");
+  const affordabilityTipEl = el.querySelector("#affordabilityTip");
+  const moveInBreakdownEl = el.querySelector("#moveInBreakdown");
+  const leaseProjectionEl = el.querySelector("#leaseProjection");
+
+  function createRentalBreakdownCards(rental) {
+    const cards = [
+      { label: 'Monthly Rent', value: rental.rent, color: rentalColors.rent, sub: 'Base rent amount' },
+      { label: 'Renter\'s Insurance', value: rental.insurance, color: rentalColors.insurance, sub: 'Monthly portion' },
+      { label: 'Parking Fee', value: rental.parking, color: rentalColors.parking, sub: 'If applicable' },
+      { label: 'Pet Rent', value: rental.petRent, color: rentalColors.petRent, sub: 'Monthly pet fee' },
+      { label: 'Utilities', value: rental.utilities, color: rentalColors.utilities, sub: 'Estimated monthly' },
+      { label: 'Move-in Total', value: rental.moveInCost, color: '#a9b3d6', sub: 'One-time costs' }
+    ];
+
+    return cards.map(c => `
+      <div class="mortgage-stat" style="--stat-color: ${c.color}">
+        <div class="mortgage-stat__label">${c.label}</div>
+        <div class="mortgage-stat__value">${money(c.value)}</div>
+        <div class="mortgage-stat__sub">${c.sub}</div>
+      </div>
+    `).join('');
+  }
+
+  const calcRental = () => {
+    const rent = num(el.querySelector("#monthlyRent").value);
+    const securityDeposit = num(el.querySelector("#securityDeposit").value);
+    const rentersInsurance = num(el.querySelector("#rentersInsurance").value);
+    const parkingFee = num(el.querySelector("#parkingFee").value);
+    const petDeposit = num(el.querySelector("#petDeposit").value);
+    const petRent = num(el.querySelector("#petRent").value);
+    const utilities = num(el.querySelector("#utilitiesEstimate").value);
+    const leaseTerm = num(el.querySelector("#leaseTerm").value);
+    const monthlyIncome = num(el.querySelector("#monthlyIncome").value);
+
+    // Monthly costs
+    const monthlyInsurance = rentersInsurance / 12;
+    const totalMonthly = rent + monthlyInsurance + parkingFee + petRent + utilities;
+
+    // Move-in costs (first month rent + deposits)
+    const moveInCost = rent + securityDeposit + petDeposit;
+
+    // Yearly cost
+    const yearlyTotal = (totalMonthly * 12);
+
+    // Lease term projection
+    const leaseTotal = (totalMonthly * leaseTerm) + moveInCost;
+
+    // Affordability calculation
+    const rentPercent = monthlyIncome > 0 ? (totalMonthly / monthlyIncome) * 100 : 0;
+    let affordabilityStatus = 'Excellent';
+    let affordabilityClass = 'excellent';
+    let affordabilityTip = 'Great! Your housing costs are well within budget.';
+    
+    if (rentPercent > 50) {
+      affordabilityStatus = 'Not Recommended';
+      affordabilityClass = 'danger';
+      affordabilityTip = 'This rental may strain your budget. Consider more affordable options.';
+    } else if (rentPercent > 40) {
+      affordabilityStatus = 'Stretched';
+      affordabilityClass = 'warning';
+      affordabilityTip = 'This is above the recommended 30% threshold. Budget carefully.';
+    } else if (rentPercent > 30) {
+      affordabilityStatus = 'Moderate';
+      affordabilityClass = 'moderate';
+      affordabilityTip = 'Slightly above 30%, but manageable with good budgeting.';
+    } else if (rentPercent > 20) {
+      affordabilityStatus = 'Good';
+      affordabilityClass = 'good';
+      affordabilityTip = 'You\'re within the recommended range. Good choice!';
+    }
+
+    // Update UI
+    rentalTotalMonthlyEl.textContent = money(totalMonthly);
+    rentalDonutCenterValue.textContent = money(totalMonthly);
+    moveInCostEl.textContent = money(moveInCost);
+    yearlyRentalCostEl.textContent = money(yearlyTotal);
+
+    // Affordability bar
+    affordabilityBar.style.width = `${Math.min(rentPercent, 100)}%`;
+    affordabilityBar.className = `rental-affordability__fill rental-affordability__fill--${affordabilityClass}`;
+    rentPercentEl.textContent = `${rentPercent.toFixed(1)}%`;
+    affordabilityStatusEl.textContent = affordabilityStatus;
+    affordabilityStatusEl.className = `rental-affordability__status rental-affordability__status--${affordabilityClass}`;
+    affordabilityTipEl.textContent = affordabilityTip;
+
+    // Donut chart
+    const rentalChartData = [
+      { label: 'Rent', value: rent, color: rentalColors.rent },
+      { label: 'Insurance', value: monthlyInsurance, color: rentalColors.insurance },
+      { label: 'Parking', value: parkingFee, color: rentalColors.parking },
+      { label: 'Pet Rent', value: petRent, color: rentalColors.petRent },
+      { label: 'Utilities', value: utilities, color: rentalColors.utilities }
+    ];
+
+    rentalDonutChart.innerHTML = createDonutChart(rentalChartData);
+    rentalChartLegend.innerHTML = createLegend(rentalChartData);
+
+    const rentalData = {
+      rent,
+      insurance: monthlyInsurance,
+      parking: parkingFee,
+      petRent,
+      utilities,
+      moveInCost
+    };
+    rentalBreakdownCards.innerHTML = createRentalBreakdownCards(rentalData);
+
+    // Move-in breakdown
+    moveInBreakdownEl.innerHTML = `
+      <div class="rental-breakdown-item">
+        <span>First Month's Rent</span>
+        <strong>${money(rent)}</strong>
+      </div>
+      <div class="rental-breakdown-item">
+        <span>Security Deposit</span>
+        <strong>${money(securityDeposit)}</strong>
+      </div>
+      ${petDeposit > 0 ? `
+      <div class="rental-breakdown-item">
+        <span>Pet Deposit</span>
+        <strong>${money(petDeposit)}</strong>
+      </div>
+      ` : ''}
+      <div class="rental-breakdown-item rental-breakdown-item--total">
+        <span>Total Move-in</span>
+        <strong>${money(moveInCost)}</strong>
+      </div>
+    `;
+
+    // Lease projection
+    leaseProjectionEl.innerHTML = `
+      <div class="rental-breakdown-item">
+        <span>Monthly Cost × ${leaseTerm} months</span>
+        <strong>${money(totalMonthly * leaseTerm)}</strong>
+      </div>
+      <div class="rental-breakdown-item">
+        <span>Move-in Costs</span>
+        <strong>${money(moveInCost)}</strong>
+      </div>
+      <div class="rental-breakdown-item rental-breakdown-item--total">
+        <span>Total Lease Cost</span>
+        <strong>${money(leaseTotal)}</strong>
+      </div>
+      <div class="rental-breakdown-item rental-breakdown-item--note">
+        <span>Monthly Average</span>
+        <strong>${money(leaseTotal / leaseTerm)}</strong>
+      </div>
+    `;
+  };
+
+  el.querySelector("#rentalCalcBtnCalc").addEventListener("click", calcRental);
+
+  // Live updates for rental calculator
+  el.querySelectorAll('#rentalCalcSection input, #rentalCalcSection select').forEach(input => {
+    input.addEventListener('change', calcRental);
+  });
+
+  // -------------------- Calculator Type Switching --------------------
+  const mortgageCalcBtn = el.querySelector("#mortgageCalcBtn");
+  const rentalCalcBtn = el.querySelector("#rentalCalcBtn");
+  const mortgageCalcSection = el.querySelector("#mortgageCalcSection");
+  const rentalCalcSection = el.querySelector("#rentalCalcSection");
+
+  function switchCalculator(type) {
+    activeCalc = type;
+    
+    if (type === "mortgage") {
+      mortgageCalcBtn.classList.add("calc-type-btn--active");
+      rentalCalcBtn.classList.remove("calc-type-btn--active");
+      mortgageCalcSection.style.display = "block";
+      rentalCalcSection.style.display = "none";
+    } else {
+      rentalCalcBtn.classList.add("calc-type-btn--active");
+      mortgageCalcBtn.classList.remove("calc-type-btn--active");
+      rentalCalcSection.style.display = "block";
+      mortgageCalcSection.style.display = "none";
+      calcRental(); // Calculate on switch
+    }
+  }
+
+  mortgageCalcBtn.addEventListener("click", () => switchCalculator("mortgage"));
+  rentalCalcBtn.addEventListener("click", () => switchCalculator("rental"));
   
   calc();
   return el;
@@ -1103,3 +1520,228 @@ function kv(k,v){
     <span>${k}</span><b>${v}</b>
   </div>`;
 }
+
+/** -------------------------
+ *  AI Chat Widget
+ *  ------------------------- */
+let chatOpen = false;
+let chatSession = null;
+let chatMessages = [];
+
+function initChatWidget() {
+  // Prevent duplicate initialization
+  if (document.querySelector('.chat-widget')) return;
+  
+  // Create chat widget HTML
+  const widget = document.createElement('div');
+  widget.className = 'chat-widget';
+  widget.innerHTML = `
+    <button class="chat-toggle" id="chatToggle" title="Chat with AI Agent">
+      <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+      <span class="notification-dot" style="display:none"></span>
+    </button>
+    <div class="chat-window" id="chatWindow">
+      <div class="chat-header">
+        <div class="chat-header__avatar">🏠</div>
+        <div class="chat-header__info">
+          <div class="chat-header__name">AI Real Estate Agent</div>
+          <div class="chat-header__status">Online • Free for 1 week</div>
+        </div>
+        <button class="chat-header__close" id="chatClose">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div id="chatFreeBanner" class="chat-free-banner" style="display:none">
+        🎉 <strong>Free access!</strong> <span id="chatDaysLeft">7 days</span> remaining
+      </div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input-area" id="chatInputArea">
+        <input type="text" class="chat-input" id="chatInput" placeholder="Ask about buying, selling, mortgages..." />
+        <button class="chat-send" id="chatSend">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(widget);
+
+  // Event listeners
+  document.getElementById('chatToggle').addEventListener('click', toggleChat);
+  document.getElementById('chatClose').addEventListener('click', () => toggleChat(false));
+  document.getElementById('chatSend').addEventListener('click', sendChatMessage);
+  document.getElementById('chatInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatMessage();
+  });
+}
+
+async function toggleChat(forceState) {
+  chatOpen = typeof forceState === 'boolean' ? forceState : !chatOpen;
+  const window = document.getElementById('chatWindow');
+  
+  if (chatOpen) {
+    window.classList.add('open');
+    await loadChatSession();
+    document.getElementById('chatInput').focus();
+  } else {
+    window.classList.remove('open');
+  }
+}
+
+async function loadChatSession() {
+  const messagesEl = document.getElementById('chatMessages');
+  const inputArea = document.getElementById('chatInputArea');
+  const freeBanner = document.getElementById('chatFreeBanner');
+  
+  // Check if user is logged in
+  if (!currentUser) {
+    messagesEl.innerHTML = `
+      <div class="chat-login-prompt">
+        <div class="chat-login-prompt__icon">🔐</div>
+        <div class="chat-login-prompt__title">Login Required</div>
+        <div class="chat-login-prompt__text">
+          Sign up or log in to chat with our AI Real Estate Agent for FREE for 1 week!
+        </div>
+        <a href="#/auth" class="btn btn--primary" onclick="toggleChat(false)">Login / Sign Up</a>
+      </div>
+    `;
+    inputArea.style.display = 'none';
+    freeBanner.style.display = 'none';
+    return;
+  }
+
+  try {
+    const data = await apiFetch('/api/chat/session');
+    chatSession = data;
+    
+    if (!data.hasAccess) {
+      // Free week expired
+      messagesEl.innerHTML = `
+        <div class="chat-expired">
+          <div class="chat-expired__icon">⏰</div>
+          <div class="chat-expired__title">Free Trial Ended</div>
+          <div class="chat-expired__text">
+            Your 1-week free access has ended. Subscribe to continue chatting with our AI agent!
+          </div>
+          <button class="btn btn--primary" onclick="alert('Subscription coming soon!')">Subscribe Now</button>
+        </div>
+      `;
+      inputArea.style.display = 'none';
+      freeBanner.style.display = 'none';
+      return;
+    }
+    
+    // Show free banner
+    if (!data.isPaid) {
+      freeBanner.style.display = 'block';
+      document.getElementById('chatDaysLeft').textContent = `${data.daysRemaining} day${data.daysRemaining !== 1 ? 's' : ''}`;
+    } else {
+      freeBanner.innerHTML = '⭐ <strong>Premium access</strong> • Unlimited chat';
+      freeBanner.style.display = 'block';
+    }
+    
+    inputArea.style.display = 'flex';
+    chatMessages = data.messages || [];
+    
+    // Render messages or welcome
+    if (chatMessages.length === 0) {
+      messagesEl.innerHTML = `
+        <div class="chat-message chat-message--agent">
+          Hi ${currentUser.name}! 👋 I'm your AI Real Estate Agent. I can help you with:
+          <br><br>
+          🏠 <b>Buying</b> - Find your dream home<br>
+          💰 <b>Selling</b> - Get tips on listing<br>
+          📊 <b>Mortgages</b> - Understand financing<br>
+          🔑 <b>Rentals</b> - Explore rental options<br>
+          📈 <b>Investing</b> - Learn about ROI<br>
+          <br>
+          What can I help you with today?
+        </div>
+      `;
+    } else {
+      renderChatMessages();
+    }
+    
+  } catch (err) {
+    messagesEl.innerHTML = `
+      <div class="notice" style="color: var(--danger);">
+        Failed to load chat. Please try again.
+      </div>
+    `;
+  }
+}
+
+function renderChatMessages() {
+  const messagesEl = document.getElementById('chatMessages');
+  messagesEl.innerHTML = chatMessages.map(msg => `
+    <div class="chat-message chat-message--${msg.role === 'user' ? 'user' : 'agent'}">
+      ${escapeHtml(msg.content)}
+    </div>
+  `).join('');
+  
+  // Scroll to bottom
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  
+  if (!message || !currentUser) return;
+  
+  input.value = '';
+  input.disabled = true;
+  document.getElementById('chatSend').disabled = true;
+  
+  // Add user message immediately
+  chatMessages.push({ role: 'user', content: message });
+  renderChatMessages();
+  
+  // Show typing indicator
+  const messagesEl = document.getElementById('chatMessages');
+  const typingEl = document.createElement('div');
+  typingEl.className = 'chat-typing';
+  typingEl.innerHTML = '<span></span><span></span><span></span>';
+  messagesEl.appendChild(typingEl);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  
+  try {
+    // Simulate slight delay for realism
+    await new Promise(r => setTimeout(r, 800 + Math.random() * 700));
+    
+    const data = await apiFetch('/api/chat/message', {
+      method: 'POST',
+      body: JSON.stringify({ message })
+    });
+    
+    // Remove typing indicator
+    typingEl.remove();
+    
+    // Add agent response
+    chatMessages.push({ role: 'agent', content: data.agentReply });
+    renderChatMessages();
+    
+  } catch (err) {
+    typingEl.remove();
+    
+    if (err.message.includes('Subscribe')) {
+      // Access expired
+      loadChatSession();
+    } else {
+      chatMessages.push({ role: 'agent', content: "Sorry, I'm having trouble responding right now. Please try again!" });
+      renderChatMessages();
+    }
+  }
+  
+  input.disabled = false;
+  document.getElementById('chatSend').disabled = false;
+  input.focus();
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Initialize chat widget immediately since this is a module script (runs after DOM ready)
+initChatWidget();
