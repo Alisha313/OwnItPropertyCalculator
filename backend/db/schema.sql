@@ -1,7 +1,16 @@
 PRAGMA foreign_keys = ON;
 
-DROP TABLE IF EXISTS users;
+-- Drop all tables in correct dependency order (children first)
+DROP TABLE IF EXISTS saved_properties;
+DROP TABLE IF EXISTS chat_messages;
+DROP TABLE IF EXISTS chat_sessions;
+DROP TABLE IF EXISTS agent_requests;
+DROP TABLE IF EXISTS email_reminders;
+DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS subscription_plans;
+DROP TABLE IF EXISTS market_trends;
 DROP TABLE IF EXISTS listings;
+DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,7 +34,9 @@ CREATE TABLE listings (
   bedrooms INTEGER NOT NULL,
   bathrooms INTEGER NOT NULL,
   sqft INTEGER,
-  year_built INTEGER
+  year_built INTEGER,
+  lat REAL,
+  lng REAL
 );
 
 CREATE INDEX idx_listings_kind ON listings(kind);
@@ -34,7 +45,6 @@ CREATE INDEX idx_listings_state ON listings(state);
 CREATE INDEX idx_listings_price ON listings(price);
 
 -- Subscription Plans
-DROP TABLE IF EXISTS subscription_plans;
 CREATE TABLE subscription_plans (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
@@ -44,7 +54,6 @@ CREATE TABLE subscription_plans (
 );
 
 -- User Subscriptions
-DROP TABLE IF EXISTS subscriptions;
 CREATE TABLE subscriptions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -62,7 +71,6 @@ CREATE TABLE subscriptions (
 );
 
 -- Email Reminders Queue
-DROP TABLE IF EXISTS email_reminders;
 CREATE TABLE email_reminders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -75,7 +83,6 @@ CREATE TABLE email_reminders (
 );
 
 -- Agent Contact Requests
-DROP TABLE IF EXISTS agent_requests;
 CREATE TABLE agent_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -91,7 +98,6 @@ CREATE INDEX idx_email_reminders_scheduled ON email_reminders(scheduled_for);
 CREATE INDEX idx_email_reminders_sent ON email_reminders(sent);
 
 -- AI Chat Feature (Free for 1 week)
-DROP TABLE IF EXISTS chat_sessions;
 CREATE TABLE chat_sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -101,7 +107,6 @@ CREATE TABLE chat_sessions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-DROP TABLE IF EXISTS chat_messages;
 CREATE TABLE chat_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id INTEGER NOT NULL,
@@ -113,3 +118,28 @@ CREATE TABLE chat_messages (
 
 CREATE INDEX idx_chat_sessions_user ON chat_sessions(user_id);
 CREATE INDEX idx_chat_messages_session ON chat_messages(session_id);
+
+-- Market trends for AI agent (mock data)
+CREATE TABLE market_trends (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  city TEXT NOT NULL,
+  state TEXT NOT NULL,
+  quarter INTEGER NOT NULL CHECK(quarter BETWEEN 1 AND 4),
+  year INTEGER NOT NULL,
+  price_per_sqft REAL NOT NULL
+);
+
+CREATE INDEX idx_market_trends_city_state ON market_trends(city, state);
+CREATE INDEX idx_market_trends_year ON market_trends(year);
+
+-- Saved properties (optional - for future use)
+CREATE TABLE saved_properties (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  listing_id TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_saved_properties_user ON saved_properties(user_id);

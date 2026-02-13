@@ -128,3 +128,146 @@ INSERT OR REPLACE INTO listings (id, kind, type, city, state, address, descripti
 INSERT OR REPLACE INTO subscription_plans (id, name, billing_cycle, price, features) VALUES
 (1, 'Basic Monthly', 'monthly', 9.99, '["Browse all listings","30-day free trial","Talk to real estate agent","No payment until trial ends","Email reminders before trial expires"]'),
 (2, 'Basic Annual', 'annually', 89.99, '["Browse all listings","30-day free trial","Talk to real estate agent","No payment until trial ends","Email reminders before trial expires","Save $30/year"]');
+
+-- Update listings with lat/lng coordinates (approximate city centers)
+UPDATE listings SET lat = 40.5187, lng = -74.4121 WHERE city = 'Edison';
+UPDATE listings SET lat = 40.7178, lng = -74.0431 WHERE city = 'Jersey City';
+UPDATE listings SET lat = 40.7440, lng = -74.0324 WHERE city = 'Hoboken';
+UPDATE listings SET lat = 40.7357, lng = -74.1724 WHERE city = 'Newark';
+UPDATE listings SET lat = 40.7831, lng = -73.9712 WHERE city = 'Manhattan';
+UPDATE listings SET lat = 40.6782, lng = -73.9442 WHERE city = 'Brooklyn';
+UPDATE listings SET lat = 42.3601, lng = -71.0589 WHERE city = 'Boston';
+UPDATE listings SET lat = 42.3736, lng = -71.1097 WHERE city = 'Cambridge';
+UPDATE listings SET lat = 41.7658, lng = -72.6734 WHERE city = 'Hartford';
+UPDATE listings SET lat = 39.9526, lng = -75.1652 WHERE city = 'Philadelphia';
+UPDATE listings SET lat = 40.4406, lng = -79.9959 WHERE city = 'Pittsburgh';
+UPDATE listings SET lat = 25.7617, lng = -80.1918 WHERE city = 'Miami';
+UPDATE listings SET lat = 28.5383, lng = -81.3792 WHERE city = 'Orlando';
+UPDATE listings SET lat = 27.9506, lng = -82.4572 WHERE city = 'Tampa';
+UPDATE listings SET lat = 30.3322, lng = -81.6557 WHERE city = 'Jacksonville';
+UPDATE listings SET lat = 33.7490, lng = -84.3880 WHERE city = 'Atlanta';
+UPDATE listings SET lat = 32.0809, lng = -81.0912 WHERE city = 'Savannah';
+UPDATE listings SET lat = 35.2271, lng = -80.8431 WHERE city = 'Charlotte';
+UPDATE listings SET lat = 35.7796, lng = -78.6382 WHERE city = 'Raleigh';
+UPDATE listings SET lat = 32.7765, lng = -79.9311 WHERE city = 'Charleston';
+UPDATE listings SET lat = 36.1627, lng = -86.7816 WHERE city = 'Nashville';
+UPDATE listings SET lat = 41.8781, lng = -87.6298 WHERE city = 'Chicago';
+UPDATE listings SET lat = 42.3314, lng = -83.0458 WHERE city = 'Detroit';
+UPDATE listings SET lat = 42.2808, lng = -83.7430 WHERE city = 'Ann Arbor';
+UPDATE listings SET lat = 44.9778, lng = -93.2650 WHERE city = 'Minneapolis';
+UPDATE listings SET lat = 43.0389, lng = -87.9065 WHERE city = 'Milwaukee';
+UPDATE listings SET lat = 39.9612, lng = -82.9988 WHERE city = 'Columbus';
+UPDATE listings SET lat = 41.4993, lng = -81.6944 WHERE city = 'Cleveland';
+UPDATE listings SET lat = 39.7684, lng = -86.1581 WHERE city = 'Indianapolis';
+UPDATE listings SET lat = 39.0997, lng = -94.5786 WHERE city = 'Kansas City';
+UPDATE listings SET lat = 33.4484, lng = -112.0740 WHERE city = 'Phoenix';
+UPDATE listings SET lat = 33.4942, lng = -111.9261 WHERE city = 'Scottsdale';
+UPDATE listings SET lat = 32.2226, lng = -110.9747 WHERE city = 'Tucson';
+UPDATE listings SET lat = 35.0844, lng = -106.6504 WHERE city = 'Albuquerque';
+UPDATE listings SET lat = 35.6870, lng = -105.9378 WHERE city = 'Santa Fe';
+UPDATE listings SET lat = 30.2672, lng = -97.7431 WHERE city = 'Austin';
+UPDATE listings SET lat = 32.7767, lng = -96.7970 WHERE city = 'Dallas';
+UPDATE listings SET lat = 29.7604, lng = -95.3698 WHERE city = 'Houston';
+UPDATE listings SET lat = 29.4241, lng = -98.4936 WHERE city = 'San Antonio';
+UPDATE listings SET lat = 36.1699, lng = -115.1398 WHERE city = 'Las Vegas';
+UPDATE listings SET lat = 34.0522, lng = -118.2437 WHERE city = 'Los Angeles';
+UPDATE listings SET lat = 37.7749, lng = -122.4194 WHERE city = 'San Francisco';
+UPDATE listings SET lat = 32.7157, lng = -117.1611 WHERE city = 'San Diego';
+UPDATE listings SET lat = 37.8044, lng = -122.2712 WHERE city = 'Oakland';
+UPDATE listings SET lat = 47.6062, lng = -122.3321 WHERE city = 'Seattle';
+UPDATE listings SET lat = 45.5051, lng = -122.6750 WHERE city = 'Portland';
+UPDATE listings SET lat = 39.7392, lng = -104.9903 WHERE city = 'Denver';
+UPDATE listings SET lat = 40.0150, lng = -105.2705 WHERE city = 'Boulder';
+UPDATE listings SET lat = 40.7608, lng = -111.8910 WHERE city = 'Salt Lake City';
+UPDATE listings SET lat = 21.3069, lng = -157.8583 WHERE city = 'Honolulu';
+UPDATE listings SET lat = 61.2181, lng = -149.9003 WHERE city = 'Anchorage';
+UPDATE listings SET lat = 43.6150, lng = -116.2023 WHERE city = 'Boise';
+UPDATE listings SET lat = 45.7833, lng = -108.5007 WHERE city = 'Billings';
+UPDATE listings SET lat = 41.1400, lng = -104.8202 WHERE city = 'Cheyenne';
+UPDATE listings SET lat = 43.5460, lng = -96.7313 WHERE city = 'Sioux Falls';
+UPDATE listings SET lat = 46.8772, lng = -96.7898 WHERE city = 'Fargo';
+UPDATE listings SET lat = 41.2565, lng = -95.9345 WHERE city = 'Omaha';
+UPDATE listings SET lat = 41.5868, lng = -93.6250 WHERE city = 'Des Moines';
+UPDATE listings SET lat = 34.7465, lng = -92.2896 WHERE city = 'Little Rock';
+UPDATE listings SET lat = 35.4676, lng = -97.5164 WHERE city = 'Oklahoma City';
+
+-- Market Trends (mock historical data by quarter for 2023-2025)
+-- NJ Cities
+INSERT INTO market_trends (city, state, quarter, year, price_per_sqft) VALUES
+('Edison', 'NJ', 1, 2023, 245), ('Edison', 'NJ', 2, 2023, 252), ('Edison', 'NJ', 3, 2023, 258), ('Edison', 'NJ', 4, 2023, 262),
+('Edison', 'NJ', 1, 2024, 268), ('Edison', 'NJ', 2, 2024, 275), ('Edison', 'NJ', 3, 2024, 280), ('Edison', 'NJ', 4, 2024, 285),
+('Edison', 'NJ', 1, 2025, 290), ('Edison', 'NJ', 2, 2025, 295), ('Edison', 'NJ', 3, 2025, 302), ('Edison', 'NJ', 4, 2025, 308),
+('Jersey City', 'NJ', 1, 2023, 380), ('Jersey City', 'NJ', 2, 2023, 392), ('Jersey City', 'NJ', 3, 2023, 405), ('Jersey City', 'NJ', 4, 2023, 415),
+('Jersey City', 'NJ', 1, 2024, 425), ('Jersey City', 'NJ', 2, 2024, 438), ('Jersey City', 'NJ', 3, 2024, 450), ('Jersey City', 'NJ', 4, 2024, 460),
+('Jersey City', 'NJ', 1, 2025, 470), ('Jersey City', 'NJ', 2, 2025, 482), ('Jersey City', 'NJ', 3, 2025, 495), ('Jersey City', 'NJ', 4, 2025, 505),
+('Hoboken', 'NJ', 1, 2023, 520), ('Hoboken', 'NJ', 2, 2023, 535), ('Hoboken', 'NJ', 3, 2023, 548), ('Hoboken', 'NJ', 4, 2023, 560),
+('Hoboken', 'NJ', 1, 2024, 575), ('Hoboken', 'NJ', 2, 2024, 588), ('Hoboken', 'NJ', 3, 2024, 600), ('Hoboken', 'NJ', 4, 2024, 612),
+('Hoboken', 'NJ', 1, 2025, 625), ('Hoboken', 'NJ', 2, 2025, 640), ('Hoboken', 'NJ', 3, 2025, 655), ('Hoboken', 'NJ', 4, 2025, 668),
+('Newark', 'NJ', 1, 2023, 145), ('Newark', 'NJ', 2, 2023, 148), ('Newark', 'NJ', 3, 2023, 152), ('Newark', 'NJ', 4, 2023, 155),
+('Newark', 'NJ', 1, 2024, 158), ('Newark', 'NJ', 2, 2024, 162), ('Newark', 'NJ', 3, 2024, 165), ('Newark', 'NJ', 4, 2024, 168),
+('Newark', 'NJ', 1, 2025, 172), ('Newark', 'NJ', 2, 2025, 175), ('Newark', 'NJ', 3, 2025, 178), ('Newark', 'NJ', 4, 2025, 182),
+-- NY Cities
+('Manhattan', 'NY', 1, 2023, 1450), ('Manhattan', 'NY', 2, 2023, 1480), ('Manhattan', 'NY', 3, 2023, 1520), ('Manhattan', 'NY', 4, 2023, 1550),
+('Manhattan', 'NY', 1, 2024, 1580), ('Manhattan', 'NY', 2, 2024, 1620), ('Manhattan', 'NY', 3, 2024, 1660), ('Manhattan', 'NY', 4, 2024, 1700),
+('Manhattan', 'NY', 1, 2025, 1740), ('Manhattan', 'NY', 2, 2025, 1780), ('Manhattan', 'NY', 3, 2025, 1820), ('Manhattan', 'NY', 4, 2025, 1860),
+('Brooklyn', 'NY', 1, 2023, 680), ('Brooklyn', 'NY', 2, 2023, 695), ('Brooklyn', 'NY', 3, 2023, 712), ('Brooklyn', 'NY', 4, 2023, 728),
+('Brooklyn', 'NY', 1, 2024, 745), ('Brooklyn', 'NY', 2, 2024, 762), ('Brooklyn', 'NY', 3, 2024, 780), ('Brooklyn', 'NY', 4, 2024, 798),
+('Brooklyn', 'NY', 1, 2025, 815), ('Brooklyn', 'NY', 2, 2025, 835), ('Brooklyn', 'NY', 3, 2025, 855), ('Brooklyn', 'NY', 4, 2025, 875),
+-- MA Cities
+('Boston', 'MA', 1, 2023, 750), ('Boston', 'MA', 2, 2023, 768), ('Boston', 'MA', 3, 2023, 785), ('Boston', 'MA', 4, 2023, 802),
+('Boston', 'MA', 1, 2024, 820), ('Boston', 'MA', 2, 2024, 838), ('Boston', 'MA', 3, 2024, 855), ('Boston', 'MA', 4, 2024, 875),
+('Boston', 'MA', 1, 2025, 895), ('Boston', 'MA', 2, 2025, 915), ('Boston', 'MA', 3, 2025, 935), ('Boston', 'MA', 4, 2025, 955),
+('Cambridge', 'MA', 1, 2023, 820), ('Cambridge', 'MA', 2, 2023, 840), ('Cambridge', 'MA', 3, 2023, 860), ('Cambridge', 'MA', 4, 2023, 880),
+('Cambridge', 'MA', 1, 2024, 900), ('Cambridge', 'MA', 2, 2024, 922), ('Cambridge', 'MA', 3, 2024, 945), ('Cambridge', 'MA', 4, 2024, 968),
+('Cambridge', 'MA', 1, 2025, 990), ('Cambridge', 'MA', 2, 2025, 1015), ('Cambridge', 'MA', 3, 2025, 1040), ('Cambridge', 'MA', 4, 2025, 1065),
+-- FL Cities
+('Miami', 'FL', 1, 2023, 440), ('Miami', 'FL', 2, 2023, 455), ('Miami', 'FL', 3, 2023, 470), ('Miami', 'FL', 4, 2023, 485),
+('Miami', 'FL', 1, 2024, 500), ('Miami', 'FL', 2, 2024, 518), ('Miami', 'FL', 3, 2024, 535), ('Miami', 'FL', 4, 2024, 552),
+('Miami', 'FL', 1, 2025, 570), ('Miami', 'FL', 2, 2025, 588), ('Miami', 'FL', 3, 2025, 608), ('Miami', 'FL', 4, 2025, 628),
+('Orlando', 'FL', 1, 2023, 220), ('Orlando', 'FL', 2, 2023, 228), ('Orlando', 'FL', 3, 2023, 235), ('Orlando', 'FL', 4, 2023, 242),
+('Orlando', 'FL', 1, 2024, 250), ('Orlando', 'FL', 2, 2024, 258), ('Orlando', 'FL', 3, 2024, 265), ('Orlando', 'FL', 4, 2024, 272),
+('Orlando', 'FL', 1, 2025, 280), ('Orlando', 'FL', 2, 2025, 288), ('Orlando', 'FL', 3, 2025, 298), ('Orlando', 'FL', 4, 2025, 308),
+('Tampa', 'FL', 1, 2023, 265), ('Tampa', 'FL', 2, 2023, 275), ('Tampa', 'FL', 3, 2023, 285), ('Tampa', 'FL', 4, 2023, 295),
+('Tampa', 'FL', 1, 2024, 305), ('Tampa', 'FL', 2, 2024, 315), ('Tampa', 'FL', 3, 2024, 325), ('Tampa', 'FL', 4, 2024, 336),
+('Tampa', 'FL', 1, 2025, 348), ('Tampa', 'FL', 2, 2025, 360), ('Tampa', 'FL', 3, 2025, 372), ('Tampa', 'FL', 4, 2025, 385),
+-- CA Cities
+('Los Angeles', 'CA', 1, 2023, 680), ('Los Angeles', 'CA', 2, 2023, 698), ('Los Angeles', 'CA', 3, 2023, 715), ('Los Angeles', 'CA', 4, 2023, 732),
+('Los Angeles', 'CA', 1, 2024, 750), ('Los Angeles', 'CA', 2, 2024, 770), ('Los Angeles', 'CA', 3, 2024, 790), ('Los Angeles', 'CA', 4, 2024, 810),
+('Los Angeles', 'CA', 1, 2025, 830), ('Los Angeles', 'CA', 2, 2025, 852), ('Los Angeles', 'CA', 3, 2025, 875), ('Los Angeles', 'CA', 4, 2025, 898),
+('San Francisco', 'CA', 1, 2023, 1050), ('San Francisco', 'CA', 2, 2023, 1075), ('San Francisco', 'CA', 3, 2023, 1100), ('San Francisco', 'CA', 4, 2023, 1125),
+('San Francisco', 'CA', 1, 2024, 1150), ('San Francisco', 'CA', 2, 2024, 1180), ('San Francisco', 'CA', 3, 2024, 1210), ('San Francisco', 'CA', 4, 2024, 1240),
+('San Francisco', 'CA', 1, 2025, 1270), ('San Francisco', 'CA', 2, 2025, 1300), ('San Francisco', 'CA', 3, 2025, 1335), ('San Francisco', 'CA', 4, 2025, 1370),
+('San Diego', 'CA', 1, 2023, 580), ('San Diego', 'CA', 2, 2023, 595), ('San Diego', 'CA', 3, 2023, 610), ('San Diego', 'CA', 4, 2023, 625),
+('San Diego', 'CA', 1, 2024, 642), ('San Diego', 'CA', 2, 2024, 658), ('San Diego', 'CA', 3, 2024, 675), ('San Diego', 'CA', 4, 2024, 692),
+('San Diego', 'CA', 1, 2025, 710), ('San Diego', 'CA', 2, 2025, 730), ('San Diego', 'CA', 3, 2025, 750), ('San Diego', 'CA', 4, 2025, 772),
+-- TX Cities
+('Austin', 'TX', 1, 2023, 385), ('Austin', 'TX', 2, 2023, 395), ('Austin', 'TX', 3, 2023, 405), ('Austin', 'TX', 4, 2023, 415),
+('Austin', 'TX', 1, 2024, 425), ('Austin', 'TX', 2, 2024, 438), ('Austin', 'TX', 3, 2024, 450), ('Austin', 'TX', 4, 2024, 462),
+('Austin', 'TX', 1, 2025, 475), ('Austin', 'TX', 2, 2025, 488), ('Austin', 'TX', 3, 2025, 502), ('Austin', 'TX', 4, 2025, 518),
+('Dallas', 'TX', 1, 2023, 245), ('Dallas', 'TX', 2, 2023, 252), ('Dallas', 'TX', 3, 2023, 258), ('Dallas', 'TX', 4, 2023, 265),
+('Dallas', 'TX', 1, 2024, 272), ('Dallas', 'TX', 2, 2024, 280), ('Dallas', 'TX', 3, 2024, 288), ('Dallas', 'TX', 4, 2024, 295),
+('Dallas', 'TX', 1, 2025, 305), ('Dallas', 'TX', 2, 2025, 315), ('Dallas', 'TX', 3, 2025, 325), ('Dallas', 'TX', 4, 2025, 335),
+('Houston', 'TX', 1, 2023, 195), ('Houston', 'TX', 2, 2023, 200), ('Houston', 'TX', 3, 2023, 205), ('Houston', 'TX', 4, 2023, 210),
+('Houston', 'TX', 1, 2024, 215), ('Houston', 'TX', 2, 2024, 222), ('Houston', 'TX', 3, 2024, 228), ('Houston', 'TX', 4, 2024, 235),
+('Houston', 'TX', 1, 2025, 242), ('Houston', 'TX', 2, 2025, 250), ('Houston', 'TX', 3, 2025, 258), ('Houston', 'TX', 4, 2025, 268),
+-- WA/CO/AZ Cities 
+('Seattle', 'WA', 1, 2023, 520), ('Seattle', 'WA', 2, 2023, 535), ('Seattle', 'WA', 3, 2023, 550), ('Seattle', 'WA', 4, 2023, 565),
+('Seattle', 'WA', 1, 2024, 580), ('Seattle', 'WA', 2, 2024, 598), ('Seattle', 'WA', 3, 2024, 615), ('Seattle', 'WA', 4, 2024, 632),
+('Seattle', 'WA', 1, 2025, 650), ('Seattle', 'WA', 2, 2025, 670), ('Seattle', 'WA', 3, 2025, 690), ('Seattle', 'WA', 4, 2025, 710),
+('Denver', 'CO', 1, 2023, 385), ('Denver', 'CO', 2, 2023, 395), ('Denver', 'CO', 3, 2023, 405), ('Denver', 'CO', 4, 2023, 415),
+('Denver', 'CO', 1, 2024, 428), ('Denver', 'CO', 2, 2024, 440), ('Denver', 'CO', 3, 2024, 452), ('Denver', 'CO', 4, 2024, 465),
+('Denver', 'CO', 1, 2025, 480), ('Denver', 'CO', 2, 2025, 495), ('Denver', 'CO', 3, 2025, 510), ('Denver', 'CO', 4, 2025, 525),
+('Phoenix', 'AZ', 1, 2023, 285), ('Phoenix', 'AZ', 2, 2023, 295), ('Phoenix', 'AZ', 3, 2023, 305), ('Phoenix', 'AZ', 4, 2023, 315),
+('Phoenix', 'AZ', 1, 2024, 325), ('Phoenix', 'AZ', 2, 2024, 338), ('Phoenix', 'AZ', 3, 2024, 350), ('Phoenix', 'AZ', 4, 2024, 362),
+('Phoenix', 'AZ', 1, 2025, 375), ('Phoenix', 'AZ', 2, 2025, 390), ('Phoenix', 'AZ', 3, 2025, 405), ('Phoenix', 'AZ', 4, 2025, 420),
+-- IL city  
+('Chicago', 'IL', 1, 2023, 295), ('Chicago', 'IL', 2, 2023, 305), ('Chicago', 'IL', 3, 2023, 315), ('Chicago', 'IL', 4, 2023, 325),
+('Chicago', 'IL', 1, 2024, 335), ('Chicago', 'IL', 2, 2024, 348), ('Chicago', 'IL', 3, 2024, 360), ('Chicago', 'IL', 4, 2024, 372),
+('Chicago', 'IL', 1, 2025, 385), ('Chicago', 'IL', 2, 2025, 400), ('Chicago', 'IL', 3, 2025, 415), ('Chicago', 'IL', 4, 2025, 430),
+-- GA/NC cities
+('Atlanta', 'GA', 1, 2023, 230), ('Atlanta', 'GA', 2, 2023, 238), ('Atlanta', 'GA', 3, 2023, 245), ('Atlanta', 'GA', 4, 2023, 252),
+('Atlanta', 'GA', 1, 2024, 260), ('Atlanta', 'GA', 2, 2024, 270), ('Atlanta', 'GA', 3, 2024, 280), ('Atlanta', 'GA', 4, 2024, 290),
+('Atlanta', 'GA', 1, 2025, 300), ('Atlanta', 'GA', 2, 2025, 312), ('Atlanta', 'GA', 3, 2025, 325), ('Atlanta', 'GA', 4, 2025, 338),
+('Charlotte', 'NC', 1, 2023, 235), ('Charlotte', 'NC', 2, 2023, 242), ('Charlotte', 'NC', 3, 2023, 250), ('Charlotte', 'NC', 4, 2023, 258),
+('Charlotte', 'NC', 1, 2024, 268), ('Charlotte', 'NC', 2, 2024, 278), ('Charlotte', 'NC', 3, 2024, 288), ('Charlotte', 'NC', 4, 2024, 298),
+('Charlotte', 'NC', 1, 2025, 310), ('Charlotte', 'NC', 2, 2025, 322), ('Charlotte', 'NC', 3, 2025, 335), ('Charlotte', 'NC', 4, 2025, 348);

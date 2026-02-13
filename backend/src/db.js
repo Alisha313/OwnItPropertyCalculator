@@ -27,5 +27,5 @@ if (process.argv.includes("--reset")) {
   console.log("🧹 Resetting DB...");
   // drop everything by deleting file contents isn't safe, but easiest is to drop tables in schema.sql
   initDb();
-  console.log("✅ DB reset complete.");
+  console.log("DB reset complete.");
 }

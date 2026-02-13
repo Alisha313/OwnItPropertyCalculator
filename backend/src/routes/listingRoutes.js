@@ -77,6 +77,44 @@ router.get("/", (req, res) => {
   res.json({ count: rows.length, listings: rows });
 });
 
+/**
+ * GET /api/listings/map?kind=sale|rental
+ * Returns listings with lat/lng for map display
+ * Public endpoint
+ */
+router.get("/map", (req, res) => {
+  const { kind } = req.query;
+
+  if (!kind || (kind !== "sale" && kind !== "rental")) {
+    return res.status(400).json({ error: "kind must be sale or rental" });
+  }
+
+  const rows = db.prepare(`
+    SELECT id, city, state, price, lat, lng, type, bedrooms, bathrooms, address, sqft
+    FROM listings
+    WHERE kind = ? AND status = 'active' AND lat IS NOT NULL AND lng IS NOT NULL
+    ORDER BY price DESC
+  `).all(kind);
+
+  res.json({ 
+    count: rows.length, 
+    kind,
+    listings: rows.map(r => ({
+      id: r.id,
+      lat: r.lat,
+      lng: r.lng,
+      city: r.city,
+      state: r.state,
+      price: r.price,
+      type: r.type,
+      bedrooms: r.bedrooms,
+      bathrooms: r.bathrooms,
+      address: r.address,
+      sqft: r.sqft
+    }))
+  });
+});
+
 router.get("/:id", (req, res) => {
   const row = db
     .prepare("SELECT id, kind, type, city, state, address, description, image_url, status, price, bedrooms, bathrooms, sqft, year_built FROM listings WHERE id = ?")
