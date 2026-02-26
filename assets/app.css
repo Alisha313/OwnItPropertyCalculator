@@ -24,11 +24,167 @@ body{
   background:
     radial-gradient(900px 500px at 20% -10%, rgba(124,92,255,.35), transparent 60%),
     radial-gradient(900px 500px at 90% 10%, rgba(41,215,255,.25), transparent 55%),
-    var(--bg);
+    #0b1020;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Property-themed background */
+.home-bg-property {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Floating property icons */
+.home-bg-property__icons {
+  position: absolute;
+  inset: 0;
+}
+.prop-icon {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  fill: var(--accent);
+  opacity: .07;
+  animation: propFloat 20s ease-in-out infinite;
+}
+.prop-icon--key  { fill: var(--accent2); width: 36px; height: 36px; }
+.prop-icon--bldg { fill: #a78bfa; width: 28px; height: 28px; }
+
+@keyframes propFloat {
+  0%   { transform: translateY(0) rotate(0deg); opacity: .07; }
+  25%  { transform: translateY(-25px) rotate(5deg); opacity: .12; }
+  50%  { transform: translateY(-10px) rotate(-3deg); opacity: .06; }
+  75%  { transform: translateY(-30px) rotate(4deg); opacity: .10; }
+  100% { transform: translateY(0) rotate(0deg); opacity: .07; }
+}
+
+/* Famous US landmarks skyline silhouette at bottom */
+.home-bg-property__skyline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 280px;
+  opacity: .06;
+  background-repeat: repeat-x;
+  background-position: bottom center;
+  background-size: 2400px 280px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2400 280' fill='%237c5cff'%3E%3C!-- Statue of Liberty (NY) --%3E%3Cpath d='M60 280v-90h8v-20h4v-30h-3l-6-12h4v-15h2l5-18 5 18h2v15h4l-6 12h-3v30h4v20h8v90z'/%3E%3Cpath d='M75 115l-3-25 3-8 3 8-3 25z'/%3E%3Cpath d='M63 128l-12-5 4-3 8 8zm24 0l12-5-4-3-8 8z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M110 280v-70h25v70zm30 0v-50h20v50zm25 0v-85h18v85z'/%3E%3C!-- Empire State Building (NY) --%3E%3Cpath d='M230 280v-110h8v-30h6v-20h4v-15h3v-25h-2v-8h3l2-22 2 22h3v8h-2v25h3v15h4v20h6v30h8v110z'/%3E%3Cpath d='M247 58l-1-18 1-5 1 5-1 18z'/%3E%3C!-- Chrysler Building (NY) --%3E%3Cpath d='M310 280v-100h6v-15h4v-10l3-8 2-12 2-18 2 18 2 12 3 8v10h4v15h6v100z'/%3E%3Cpath d='M325 117l-4-10 4-6 4 6-4 10z'/%3E%3C!-- Regular buildings fill --%3E%3Cpath d='M365 280v-65h22v65zm28 0v-45h18v45z'/%3E%3C!-- Capitol Building (DC) --%3E%3Cpath d='M440 280v-60h80v60zm10-60v-20h60v20zm15-20v-15h30v15z'/%3E%3Cpath d='M480 185v-18h8v18z'/%3E%3Cellipse cx='484' cy='162' rx='14' ry='12'/%3E%3Cpath d='M482 150v-12h4v12z'/%3E%3Cpath d='M484 138l-2-8 2-4 2 4-2 8z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M545 280v-80h20v80zm25 0v-55h15v55z'/%3E%3C!-- Willis/Sears Tower (IL) --%3E%3Cpath d='M620 280v-155h14v-20h10v20h14v155zm14-175v-15h10v15z'/%3E%3Cpath d='M628 90v-10h6v10zm20 0v-10h6v10z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M680 280v-70h18v70zm22 0v-90h16v90zm20 0v-50h14v50z'/%3E%3C!-- Gateway Arch (MO) --%3E%3Cpath d='M775 280c0-100 25-170 45-170s45 70 45 170h-8c0-90-20-154-37-154s-37 64-37 154z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M880 280v-60h20v60zm25 0v-75h16v75z'/%3E%3C!-- Space Needle (WA) --%3E%3Cpath d='M960 280v-80h4v-60h2v-10h-16l-4-8h42l-4 8h-16v10h2v60h4v80z'/%3E%3Cellipse cx='968' cy='122' rx='22' ry='4'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M1010 280v-65h20v65zm25 0v-85h18v85zm22 0v-45h14v45z'/%3E%3C!-- Transamerica Pyramid (CA) --%3E%3Cpath d='M1120 280v0l20-180 20 180z'/%3E%3Cpath d='M1138 100v-20h4v20z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M1175 280v-70h22v70zm28 0v-55h16v55z'/%3E%3C!-- Freedom Tower / One WTC (NY) --%3E%3Cpath d='M1260 280v-140l12-40 12 40v140zm10-180v-10h4v10z'/%3E%3Cpath d='M1270 60l-2-15 2-6 2 6-2 15z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M1305 280v-80h18v80zm22 0v-60h14v60z'/%3E%3C!-- John Hancock Tower (MA) --%3E%3Cpath d='M1375 280v-135h24v135zm4-135v-15h16v15z'/%3E%3Cpath d='M1381 130v-8h12v8zm0-15v-8h12v8z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M1420 280v-50h18v50zm22 0v-70h14v70z'/%3E%3C!-- Bank of America Plaza style (GA/TX) --%3E%3Cpath d='M1490 280v-120h20v120z'/%3E%3Cpath d='M1494 160l6-20 6 20z'/%3E%3Cpath d='M1496 140l4-10 4 10z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M1530 280v-55h16v55z'/%3E%3C!-- Reunion Tower style (TX) --%3E%3Cpath d='M1580 280v-100h4v-30h-2v-4h10v4h-2v30h4v100z'/%3E%3Ccircle cx='1587' cy='142' r='12'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M1620 280v-65h20v65zm24 0v-45h16v45z'/%3E%3C!-- Stratosphere style (NV) --%3E%3Cpath d='M1700 280v-90h3v-55h2v-15h-8l-3-6h24l-3 6h-8v15h2v55h3v90z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M1740 280v-75h20v75zm24 0v-55h16v55z'/%3E%3C!-- Alamo shape (TX) --%3E%3Cpath d='M1820 280v-50h50v50zm5-50v-15l5-8h30l5 8v15z'/%3E%3Cpath d='M1840 222v-8h10v8z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M1890 280v-65h18v65zm22 0v-80h16v80z'/%3E%3C!-- US Bank Tower style (CA) --%3E%3Cpath d='M1960 280v-145h22v145z'/%3E%3Cpath d='M1965 135l6-10h10l6 10z'/%3E%3Cpath d='M1969 125l2-8 2 8z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M2000 280v-55h18v55zm22 0v-70h14v70z'/%3E%3C!-- Church steeple / New England --%3E%3Cpath d='M2070 280v-60h30v60zm8-60v-25h14v25z'/%3E%3Cpath d='M2083 195l-2-20 2-6 2 6-2 20z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M2120 280v-50h18v50zm22 0v-85h16v85z'/%3E%3C!-- Miami Tower style (FL) --%3E%3Cpath d='M2195 280v-120h8v-15h6v15h8v120z'/%3E%3Cpath d='M2203 145v-10h4v-8h4v8h4v10z'/%3E%3C!-- Regular buildings --%3E%3Cpath d='M2240 280v-60h20v60zm24 0v-70h16v70z'/%3E%3C!-- IDS Tower style (MN) --%3E%3Cpath d='M2315 280v-130h18v130zm-4-100h26v3h-26z'/%3E%3C!-- Fill to edge --%3E%3Cpath d='M2350 280v-55h20v55zm24 0v-40h26v40z'/%3E%3C/svg%3E");
+}
+
+/* Light mode — dark visible icons & skyline */
+html.light .prop-icon {
+  fill: #2d1b69;
+  opacity: .18;
+  animation-name: propFloatLight;
+}
+html.light .prop-icon--key {
+  fill: #0c4a6e;
+  opacity: .20;
+}
+html.light .prop-icon--bldg {
+  fill: #3b1f8e;
+  opacity: .18;
+}
+
+/* Light mode floating animation — bolder pulse */
+@keyframes propFloatLight {
+  0%   { transform: translateY(0) rotate(0deg); opacity: .18; }
+  25%  { transform: translateY(-25px) rotate(5deg); opacity: .28; }
+  50%  { transform: translateY(-10px) rotate(-3deg); opacity: .15; }
+  75%  { transform: translateY(-30px) rotate(4deg); opacity: .25; }
+  100% { transform: translateY(0) rotate(0deg); opacity: .18; }
+}
+
+html.light .home-bg-property__skyline {
+  opacity: .15;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2400 280' fill='%232d1b69'%3E%3Cpath d='M60 280v-90h8v-20h4v-30h-3l-6-12h4v-15h2l5-18 5 18h2v15h4l-6 12h-3v30h4v20h8v90z'/%3E%3Cpath d='M75 115l-3-25 3-8 3 8-3 25z'/%3E%3Cpath d='M63 128l-12-5 4-3 8 8zm24 0l12-5-4-3-8 8z'/%3E%3Cpath d='M110 280v-70h25v70zm30 0v-50h20v50zm25 0v-85h18v85z'/%3E%3Cpath d='M230 280v-110h8v-30h6v-20h4v-15h3v-25h-2v-8h3l2-22 2 22h3v8h-2v25h3v15h4v20h6v30h8v110z'/%3E%3Cpath d='M247 58l-1-18 1-5 1 5-1 18z'/%3E%3Cpath d='M310 280v-100h6v-15h4v-10l3-8 2-12 2-18 2 18 2 12 3 8v10h4v15h6v100z'/%3E%3Cpath d='M325 117l-4-10 4-6 4 6-4 10z'/%3E%3Cpath d='M365 280v-65h22v65zm28 0v-45h18v45z'/%3E%3Cpath d='M440 280v-60h80v60zm10-60v-20h60v20zm15-20v-15h30v15z'/%3E%3Cpath d='M480 185v-18h8v18z'/%3E%3Cellipse cx='484' cy='162' rx='14' ry='12'/%3E%3Cpath d='M482 150v-12h4v12z'/%3E%3Cpath d='M484 138l-2-8 2-4 2 4-2 8z'/%3E%3Cpath d='M545 280v-80h20v80zm25 0v-55h15v55z'/%3E%3Cpath d='M620 280v-155h14v-20h10v20h14v155zm14-175v-15h10v15z'/%3E%3Cpath d='M628 90v-10h6v10zm20 0v-10h6v10z'/%3E%3Cpath d='M680 280v-70h18v70zm22 0v-90h16v90zm20 0v-50h14v50z'/%3E%3Cpath d='M775 280c0-100 25-170 45-170s45 70 45 170h-8c0-90-20-154-37-154s-37 64-37 154z'/%3E%3Cpath d='M880 280v-60h20v60zm25 0v-75h16v75z'/%3E%3Cpath d='M960 280v-80h4v-60h2v-10h-16l-4-8h42l-4 8h-16v10h2v60h4v80z'/%3E%3Cellipse cx='968' cy='122' rx='22' ry='4'/%3E%3Cpath d='M1010 280v-65h20v65zm25 0v-85h18v85zm22 0v-45h14v45z'/%3E%3Cpath d='M1120 280v0l20-180 20 180z'/%3E%3Cpath d='M1138 100v-20h4v20z'/%3E%3Cpath d='M1175 280v-70h22v70zm28 0v-55h16v55z'/%3E%3Cpath d='M1260 280v-140l12-40 12 40v140zm10-180v-10h4v10z'/%3E%3Cpath d='M1270 60l-2-15 2-6 2 6-2 15z'/%3E%3Cpath d='M1305 280v-80h18v80zm22 0v-60h14v60z'/%3E%3Cpath d='M1375 280v-135h24v135zm4-135v-15h16v15z'/%3E%3Cpath d='M1381 130v-8h12v8zm0-15v-8h12v8z'/%3E%3Cpath d='M1420 280v-50h18v50zm22 0v-70h14v70z'/%3E%3Cpath d='M1490 280v-120h20v120z'/%3E%3Cpath d='M1494 160l6-20 6 20z'/%3E%3Cpath d='M1496 140l4-10 4 10z'/%3E%3Cpath d='M1530 280v-55h16v55z'/%3E%3Cpath d='M1580 280v-100h4v-30h-2v-4h10v4h-2v30h4v100z'/%3E%3Ccircle cx='1587' cy='142' r='12'/%3E%3Cpath d='M1620 280v-65h20v65zm24 0v-45h16v45z'/%3E%3Cpath d='M1700 280v-90h3v-55h2v-15h-8l-3-6h24l-3 6h-8v15h2v55h3v90z'/%3E%3Cpath d='M1740 280v-75h20v75zm24 0v-55h16v55z'/%3E%3Cpath d='M1820 280v-50h50v50zm5-50v-15l5-8h30l5 8v15z'/%3E%3Cpath d='M1840 222v-8h10v8z'/%3E%3Cpath d='M1890 280v-65h18v65zm22 0v-80h16v80z'/%3E%3Cpath d='M1960 280v-145h22v145z'/%3E%3Cpath d='M1965 135l6-10h10l6 10z'/%3E%3Cpath d='M1969 125l2-8 2 8z'/%3E%3Cpath d='M2000 280v-55h18v55zm22 0v-70h14v70z'/%3E%3Cpath d='M2070 280v-60h30v60zm8-60v-25h14v25z'/%3E%3Cpath d='M2083 195l-2-20 2-6 2 6-2 20z'/%3E%3Cpath d='M2120 280v-50h18v50zm22 0v-85h16v85z'/%3E%3Cpath d='M2195 280v-120h8v-15h6v15h8v120z'/%3E%3Cpath d='M2203 145v-10h4v-8h4v8h4v10z'/%3E%3Cpath d='M2240 280v-60h20v60zm24 0v-70h16v70z'/%3E%3Cpath d='M2315 280v-130h18v130zm-4-100h26v3h-26z'/%3E%3Cpath d='M2350 280v-55h20v55zm24 0v-40h26v40z'/%3E%3C/svg%3E");
 }
 
 a{color:inherit;text-decoration:none}
 .container{max-width:100%;margin:0 auto;padding:24px 40px}
+
+/* ==========================================
+   GLOBAL EFFECTS & ANIMATIONS
+   ========================================== */
+
+/* Page fade-in on load */
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#app > * {
+  animation: pageFadeIn .35s ease-out;
+}
+
+/* Scroll reveal for sections */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero, .home-map-section, .grid--3 > .card,
+.listings-hero, .listings-filters, .mortgage-hero {
+  animation: revealUp .5s ease-out both;
+}
+.grid--3 > .card:nth-child(2) { animation-delay: .1s; }
+.grid--3 > .card:nth-child(3) { animation-delay: .2s; }
+
+/* Subtle glow on primary buttons */
+.btn--primary {
+  transition: transform .2s, box-shadow .2s;
+}
+.btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(124,92,255,.35);
+}
+
+/* Card hover lift */
+.card {
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 35px rgba(0,0,0,.2);
+  border-color: rgba(124,92,255,.18);
+}
+
+/* Smooth gradient shimmer on hero pill */
+.pill {
+  transition: background .3s, border-color .3s;
+}
+.pill:hover {
+  background: rgba(124,92,255,.08);
+  border-color: rgba(124,92,255,.25);
+}
+
+/* Nav link hover underline effect */
+.nav a {
+  position: relative;
+  transition: color .2s;
+}
+.nav a::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 1px;
+  transition: width .25s ease, left .25s ease;
+}
+.nav a:hover::after,
+.nav a.active::after {
+  width: 60%;
+  left: 20%;
+}
+.nav a:hover {
+  color: var(--text);
+}
 
 .topbar{
   position:sticky;top:0;z-index:20;
@@ -1599,5 +1755,1432 @@ tr:hover td{background:rgba(255,255,255,.02)}
     width: 54px;
     height: 54px;
   }
+}
+
+/* ===== Listing Detail Page (UC04) ===== */
+
+.listing-detail-container { max-width: 1100px; margin: 0 auto; }
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  color: var(--accent2);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+.back-link:hover { text-decoration: underline; }
+
+.detail-hero {
+  width: 100%;
+  height: 340px;
+  border-radius: 14px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+}
+.detail-hero__overlay {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.detail-content {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+  margin-top: 24px;
+}
+@media (max-width: 800px) {
+  .detail-content { grid-template-columns: 1fr; }
+}
+
+.detail-price {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--accent2);
+  margin: 0 0 6px;
+}
+.detail-location {
+  font-size: 16px;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+.detail-stats {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.detail-stat {
+  text-align: center;
+  padding: 14px 20px;
+  background: var(--card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.detail-stat__value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--fg);
+}
+.detail-stat__label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.detail-section { margin-top: 20px; }
+.detail-section__title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.detail-section__text {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+
+/* ===== Subscription Page (UC12-16, UC20) ===== */
+
+.subscription-container { max-width: 960px; margin: 0 auto; }
+
+.sub-hero {
+  text-align: center;
+  padding: 28px 0 20px;
+}
+.sub-hero__title {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+.sub-hero__sub {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.sub-section {
+  margin-bottom: 28px;
+}
+.sub-section__title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--fg);
+}
+
+/* Status card */
+.sub-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.sub-status__icon { font-size: 32px; }
+.sub-status__label {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.sub-status__sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.sub-status__plan {
+  font-size: 13px;
+  color: var(--accent2);
+  margin-top: 4px;
+}
+.sub-status__payment {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.sub-status--trial { border-left: 4px solid #ffd93d; }
+.sub-status--active { border-left: 4px solid #6bcb77; }
+.sub-status--cancelled { border-left: 4px solid #ff6b6b; }
+.sub-status--expired { border-left: 4px solid var(--muted); }
+
+/* Plans grid */
+.sub-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.sub-plan-card {
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  text-align: center;
+  transition: border-color .2s;
+}
+.sub-plan-card:hover { border-color: var(--accent2); }
+.sub-plan-card--selected { border-color: var(--accent2); background: rgba(124,92,255,.06); }
+
+.sub-plan-card__name {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.sub-plan-card__price {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--accent2);
+}
+.sub-plan-card__cycle {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.sub-plan-card__features {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+  text-align: left;
+  font-size: 13px;
+}
+.sub-plan-card__features li {
+  padding: 4px 0;
+  color: var(--muted);
+}
+.sub-plan-card__btn { width: 100%; }
+
+/* Actions */
+.sub-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn--danger {
+  background: #ff4757;
+  color: #fff;
+  border: none;
+}
+.btn--danger:hover { background: #e8384f; }
+
+.notice--error {
+  background: rgba(255,71,87,.12);
+  color: #ff6b6b;
+  border: 1px solid rgba(255,71,87,.2);
+}
+
+/* Quick-pick city buttons */
+.quick-pick-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 20px;
+  transition: all .2s;
+}
+.quick-pick-btn--active {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #0a1020;
+  border-color: transparent;
+  font-weight: 700;
+}
+html.light .quick-pick-btn--active {
+  color: #fff;
+}
+
+/* Listing card hover */
+.listing-card { transition: transform .15s, box-shadow .15s; }
+.listing-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.15);
+}
+
+
+/* ===== AI Agent Features (U20) ===== */
+
+/* AI Actions Panel in Chat */
+.chat-ai-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.chat-ai-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-ai-btn:hover {
+  background: rgba(124, 92, 255, 0.2);
+  border-color: var(--accent);
+}
+
+.chat-ai-btn--active {
+  background: rgba(124, 92, 255, 0.3);
+  border-color: var(--accent);
+}
+
+/* Map Container */
+.ai-map-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ai-map-header {
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-map-header__title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ai-map-header__close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.ai-map-header__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.ai-map {
+  flex: 1;
+  min-height: 300px;
+}
+
+/* Leaflet popup styling */
+.leaflet-popup-content-wrapper {
+  background: var(--card) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.leaflet-popup-content {
+  color: var(--text) !important;
+  margin: 12px !important;
+  font-size: 13px !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--card) !important;
+  border: 1px solid var(--line) !important;
+}
+
+.map-popup {
+  min-width: 180px;
+}
+
+.map-popup__price {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent2);
+  margin-bottom: 4px;
+}
+
+.map-popup__location {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.map-popup__details {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.map-popup__link {
+  display: inline-block;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #08102a !important;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none !important;
+}
+
+/* Market Trends Chart */
+.ai-chart-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ai-chart-header {
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-chart-header__title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ai-chart-header__close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.ai-chart {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.ai-chart canvas {
+  max-height: 200px;
+}
+
+.ai-chart-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.ai-chart-stat {
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.ai-chart-stat__value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent2);
+}
+
+.ai-chart-stat__label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.ai-chart-stat--up .ai-chart-stat__value {
+  color: #22c55e;
+}
+
+.ai-chart-stat--down .ai-chart-stat__value {
+  color: #ef4444;
+}
+
+/* City/State selector in chat */
+.ai-location-selector {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid var(--line);
+}
+
+.ai-location-selector select,
+.ai-location-selector input {
+  flex: 1;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.ai-location-selector select:focus,
+.ai-location-selector input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* Valuation result card */
+.ai-valuation {
+  padding: 16px;
+  background: rgba(124, 92, 255, 0.08);
+  border: 1px solid rgba(124, 92, 255, 0.2);
+  border-radius: 12px;
+  margin: 8px 0;
+}
+
+.ai-valuation__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.ai-valuation__estimate {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent2);
+}
+
+.ai-valuation__confidence {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ai-valuation__confidence--high {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.ai-valuation__confidence--medium {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.ai-valuation__confidence--low {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.ai-valuation__diff {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.ai-valuation__diff--above {
+  color: #22c55e;
+}
+
+.ai-valuation__diff--below {
+  color: #ef4444;
+}
+
+.ai-valuation__explanation {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.ai-valuation__comps {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ai-valuation__comps-title {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.ai-valuation__comp {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ai-valuation__comp:last-child {
+  border-bottom: none;
+}
+
+/* Full-page Map View */
+.map-page-container {
+  max-width: none;
+  padding: 0;
+  height: calc(100vh - 130px);
+  display: flex;
+  flex-direction: column;
+}
+
+.map-page-header {
+  padding: 16px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.map-page-header__title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.map-page-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.map-page-controls select {
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.map-page-count {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.map-page-map {
+  flex: 1;
+  min-height: 400px;
+}
+
+/* ========== Home Page Interactive Map ========== */
+.home-map-section {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.home-map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 28px 20px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.home-map-header__title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -.4px;
+  margin: 8px 0 6px;
+}
+
+.home-map-header__sub {
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 500px;
+  line-height: 1.5;
+}
+
+.home-map-badge {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(124,92,255,.15);
+  color: #a78bfa;
+  border: 1px solid rgba(124,92,255,.25);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.home-map-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.home-map-stat {
+  text-align: center;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line);
+}
+
+.home-map-stat__value {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.home-map-stat__label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-top: 2px;
+}
+
+.home-map-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  min-height: 420px;
+}
+
+@media (max-width: 900px) {
+  .home-map-wrapper {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-map-container {
+  position: relative;
+  min-height: 420px;
+}
+
+.home-map {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  background: #0d1117;
+}
+
+.home-map-overlay-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to top, var(--card), transparent);
+  pointer-events: none;
+  z-index: 400;
+}
+
+/* Sidebar */
+.home-map-sidebar {
+  padding: 20px;
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  background: rgba(255,255,255,.02);
+  overflow-y: auto;
+  max-height: 420px;
+}
+
+.home-map-sidebar__title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.home-map-sidebar__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.trending-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.trending-item:hover {
+  background: rgba(124,92,255,.08);
+  border-color: rgba(124,92,255,.3);
+  transform: translateX(4px);
+}
+
+.trending-item__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.trending-item__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.trending-item__city {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trending-item__detail {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.trending-item__arrow {
+  color: var(--muted);
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+.trending-item:hover .trending-item__arrow {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* Pulsing Map Markers */
+.map-pulse-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.pulse-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  position: relative;
+  cursor: pointer;
+  transition: transform .2s;
+}
+
+.pulse-dot:hover {
+  transform: scale(1.3);
+}
+
+.pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid;
+  opacity: 0;
+  animation: pulseRing 2s ease-out infinite;
+}
+
+@keyframes pulseRing {
+  0% { width: 14px; height: 14px; opacity: .6; }
+  100% { width: 40px; height: 40px; opacity: 0; }
+}
+
+/* Leaflet popup override for dark theme */
+.home-map .leaflet-popup-content-wrapper {
+  background: var(--card);
+  color: var(--text);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+
+.home-map .leaflet-popup-tip {
+  background: var(--card);
+}
+
+.home-map .leaflet-popup-close-button {
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .home-map-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .home-map-sidebar {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    max-height: none;
+  }
+}
+
+/* ==========================================
+   THEME TOGGLE BUTTON
+   ========================================== */
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: rgba(124,92,255,.15);
+  border-color: rgba(124,92,255,.3);
+  color: var(--text);
+}
+
+/* In dark mode (default): show sun, hide moon */
+.theme-toggle__sun  { display: block; }
+.theme-toggle__moon { display: none;  }
+
+/* In light mode: show moon, hide sun */
+html.light .theme-toggle__sun  { display: none;  }
+html.light .theme-toggle__moon { display: block; }
+
+/* ==========================================
+   LIGHT THEME OVERRIDES  — full rewrite
+   ========================================== */
+
+html.light {
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --card2: #f0f2f7;
+  --text: #1a1d2e;
+  --muted: #5e6378;
+  --line: rgba(0,0,0,.1);
+  --accent: #6a4cff;
+  --accent2: #0ea5e9;
+  --danger: #ef4444;
+  --shadow: 0 4px 24px rgba(0,0,0,.06);
+}
+
+/* ---- Topbar ---- */
+html.light .topbar {
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(12px);
+  border-bottom-color: var(--line);
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+
+html.light .brand__logo {
+  box-shadow: 0 4px 12px rgba(106,76,255,.2);
+}
+
+html.light .nav a {
+  color: var(--muted);
+}
+
+html.light .nav a:hover {
+  color: var(--text);
+}
+
+html.light .nav a.active {
+  background: rgba(106,76,255,.08);
+  color: var(--text);
+  border-color: rgba(106,76,255,.18);
+}
+
+/* ---- Cards & Panels ---- */
+html.light .card {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+  box-shadow: 0 2px 12px rgba(0,0,0,.05);
+}
+
+html.light .card:hover {
+  box-shadow: 0 8px 30px rgba(106,76,255,.1);
+  border-color: rgba(106,76,255,.18);
+}
+
+html.light .card__muted {
+  color: var(--muted);
+}
+
+/* ---- Hero ---- */
+html.light .hero {
+  background:
+    radial-gradient(700px 220px at 10% 10%, rgba(106,76,255,.06), transparent 60%),
+    radial-gradient(700px 220px at 90% 20%, rgba(14,165,233,.04), transparent 60%),
+    #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+/* ---- Buttons ---- */
+html.light .btn {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.1);
+  color: var(--text);
+}
+
+html.light .btn:hover {
+  background: #ebedf3;
+  border-color: rgba(0,0,0,.18);
+}
+
+html.light .btn--primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  border: none;
+}
+
+html.light .btn--primary:hover {
+  box-shadow: 0 6px 24px rgba(106,76,255,.25);
+}
+
+html.light .btn--ghost {
+  background: transparent;
+}
+
+html.light .btn--danger {
+  background: rgba(239,68,68,.1);
+  color: #dc2626;
+  border-color: rgba(239,68,68,.2);
+}
+
+/* ---- Inputs ---- */
+html.light input,
+html.light select {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.1);
+  color: var(--text);
+}
+
+html.light input:focus,
+html.light select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(106,76,255,.1);
+  background: #fff;
+}
+
+html.light .mortgage-input input,
+html.light .mortgage-input select {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.1);
+  color: var(--text);
+}
+
+html.light .mortgage-input input:focus,
+html.light .mortgage-input select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(106,76,255,.1);
+  background: #fff;
+}
+
+/* ---- Mortgage Page ---- */
+html.light .mortgage-form {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+html.light .mortgage-hero {
+  background:
+    radial-gradient(ellipse 120% 80% at 0% 0%, rgba(106,76,255,.08), transparent),
+    radial-gradient(ellipse 100% 80% at 100% 100%, rgba(14,165,233,.06), transparent),
+    linear-gradient(135deg, #fff, #f8f9fc);
+  border-color: rgba(0,0,0,.08);
+}
+
+html.light .mortgage-hero::before {
+  background: radial-gradient(circle, rgba(106,76,255,.06), transparent 70%);
+}
+
+html.light .mortgage-chart {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+html.light .mortgage-amort {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+html.light .mortgage-info-card {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+html.light .mortgage-rates-section {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+html.light .mortgage-stat,
+html.light .mortgage-breakdown .mortgage-stat {
+  background: #f8f9fc;
+  border-color: rgba(0,0,0,.06);
+}
+
+html.light .mortgage-total-card {
+  background: linear-gradient(145deg, rgba(106,76,255,.06), rgba(14,165,233,.04));
+  border-color: rgba(106,76,255,.12);
+}
+
+html.light .mortgage-total-card::before {
+  background: radial-gradient(circle, rgba(106,76,255,.04), transparent);
+}
+
+html.light .mortgage-total__value {
+  background: linear-gradient(135deg, #1a1d2e 20%, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+html.light .mortgage-rates-header {
+  background: linear-gradient(135deg, rgba(106,76,255,.04), rgba(14,165,233,.02));
+}
+
+html.light .mortgage-input.state-select {
+  background: linear-gradient(135deg, rgba(106,76,255,.05), rgba(14,165,233,.03));
+  border-color: rgba(106,76,255,.12);
+}
+
+html.light .mortgage-input.state-select select {
+  background: #fff;
+  border-color: rgba(106,76,255,.12);
+}
+
+html.light .mortgage-input.state-select label {
+  color: var(--accent);
+}
+
+html.light .mortgage-btn {
+  color: #fff;
+}
+
+/* ---- Tables ---- */
+html.light th {
+  background: #f8f9fc;
+  color: var(--muted);
+}
+
+html.light td {
+  border-bottom-color: rgba(0,0,0,.06);
+}
+
+html.light tr:hover td {
+  background: rgba(106,76,255,.03);
+}
+
+html.light .mortgage-amort__table th {
+  background: #f4f5f9;
+}
+
+html.light .mortgage-amort__table td {
+  border-bottom-color: rgba(0,0,0,.06);
+}
+
+html.light .mortgage-amort__table tr:hover td {
+  background: rgba(106,76,255,.04);
+}
+
+html.light .tableWrap {
+  border-color: rgba(0,0,0,.08);
+}
+
+/* ---- Rental pages ---- */
+html.light .rental-affordability {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+html.light .rental-summary-section {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+html.light .rental-summary-card {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+/* ---- Listing cards ---- */
+html.light .listing-card {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+  box-shadow: 0 2px 12px rgba(0,0,0,.04);
+}
+
+html.light .listing-card:hover {
+  box-shadow: 0 12px 40px rgba(106,76,255,.1);
+  border-color: rgba(106,76,255,.18);
+}
+
+html.light .listing-card__image {
+  background-color: #f0f1f5;
+}
+
+/* ---- State rate cards ---- */
+html.light .state-rate-card {
+  background: #f8f9fc;
+  border-color: rgba(0,0,0,.06);
+}
+
+html.light .state-rate-card:hover {
+  background: rgba(106,76,255,.04);
+  border-color: rgba(106,76,255,.15);
+}
+
+/* ---- Calc type selector ---- */
+html.light .calc-type-btn {
+  background: #f8f9fc;
+  border-color: rgba(0,0,0,.08);
+  color: var(--muted);
+}
+
+html.light .calc-type-btn:hover {
+  border-color: rgba(106,76,255,.2);
+  background: #fff;
+  color: var(--text);
+}
+
+html.light .calc-type-btn--active {
+  border-color: var(--accent);
+  background: rgba(106,76,255,.06);
+  color: var(--text);
+}
+
+/* ---- Home Map Section ---- */
+html.light .home-map-section {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+  box-shadow: 0 2px 16px rgba(0,0,0,.05);
+}
+
+html.light .home-map {
+  background: #e8eaf0;
+}
+
+html.light .home-map-overlay-gradient {
+  background: linear-gradient(to top, #fff, transparent);
+}
+
+html.light .home-map-stat {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.06);
+}
+
+html.light .home-map-sidebar {
+  background: #fafbfe;
+  border-left-color: rgba(0,0,0,.06);
+}
+
+html.light .trending-item {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.06);
+}
+
+html.light .trending-item:hover {
+  background: rgba(106,76,255,.06);
+  border-color: rgba(106,76,255,.18);
+}
+
+html.light .home-map-badge {
+  background: rgba(106,76,255,.08);
+  color: var(--accent);
+  border-color: rgba(106,76,255,.15);
+}
+
+/* ---- Map page controls ---- */
+html.light .map-page-controls select {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.1);
+  color: var(--text);
+}
+
+/* ---- Leaflet popups ---- */
+html.light .leaflet-popup-content-wrapper,
+html.light .home-map .leaflet-popup-content-wrapper {
+  background: #fff !important;
+  border-color: rgba(0,0,0,.08) !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,.1) !important;
+  color: var(--text) !important;
+}
+
+html.light .leaflet-popup-tip,
+html.light .home-map .leaflet-popup-tip {
+  background: #fff !important;
+}
+
+html.light .leaflet-popup-content {
+  color: var(--text) !important;
+}
+
+html.light .home-map .leaflet-popup-close-button {
+  color: var(--muted);
+}
+
+/* ---- Notices / Pills / Badges ---- */
+html.light .notice {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.06);
+  color: var(--muted);
+}
+
+html.light .notice--error {
+  background: rgba(239,68,68,.06);
+  color: #dc2626;
+  border-color: rgba(239,68,68,.15);
+}
+
+html.light .pill {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.06);
+  color: var(--muted);
+}
+
+html.light .pill:hover {
+  background: rgba(106,76,255,.06);
+  border-color: rgba(106,76,255,.18);
+}
+
+html.light .badge {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.06);
+  color: var(--muted);
+}
+
+/* ---- Quick-pick buttons ---- */
+html.light .quick-pick-btn {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.08);
+  color: var(--muted);
+}
+
+html.light .quick-pick-btn:hover {
+  background: rgba(106,76,255,.06);
+  border-color: rgba(106,76,255,.2);
+  color: var(--text);
+}
+
+html.light .quick-pick-btn--active {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  border-color: transparent;
+}
+
+/* ---- Chat Widget ---- */
+html.light .chat-window {
+  background: #fff;
+  border-color: rgba(0,0,0,.1);
+  box-shadow: 0 16px 50px rgba(0,0,0,.1);
+}
+
+html.light .chat-header {
+  background: linear-gradient(135deg, rgba(106,76,255,.06), rgba(14,165,233,.04));
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+
+html.light .chat-message--agent {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.06);
+}
+
+html.light .chat-input {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.1);
+  color: var(--text);
+}
+
+html.light .chat-ai-actions,
+html.light .ai-map-header,
+html.light .ai-chart-header {
+  background: #f4f5f9;
+}
+
+html.light .chat-ai-btn {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+  color: var(--text);
+}
+
+html.light .chat-ai-btn:hover {
+  background: rgba(106,76,255,.06);
+  border-color: rgba(106,76,255,.15);
+}
+
+/* ---- Subscription cards ---- */
+html.light .sub-status,
+html.light .sub-plan-card,
+html.light .detail-stat {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+/* ---- Footer ---- */
+html.light .footer {
+  border-top-color: rgba(0,0,0,.08);
+  background: rgba(255,255,255,.6);
+}
+
+/* ---- Theme toggle ---- */
+html.light .theme-toggle {
+  background: rgba(0,0,0,.04);
+  border-color: rgba(0,0,0,.08);
+  color: var(--muted);
+}
+
+html.light .theme-toggle:hover {
+  background: rgba(106,76,255,.08);
+  border-color: rgba(106,76,255,.18);
+  color: var(--accent);
+}
+
+/* ---- Filters page ---- */
+html.light .filters select,
+html.light .filters input {
+  background: #f4f5f9;
+  border-color: rgba(0,0,0,.1);
+}
+
+/* ---- Map pulse markers in light ---- */
+html.light .pulse-dot {
+  filter: brightness(.9);
+}
+
+/* ---- Listings hero ---- */
+html.light .listings-hero {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+html.light .listings-filters {
+  background: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+
+/* ---- Scrollbar for light mode ---- */
+html.light ::-webkit-scrollbar-track {
+  background: #f4f5f9;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,.15);
+  border-radius: 10px;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,.25);
 }
 
