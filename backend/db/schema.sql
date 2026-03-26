@@ -1,6 +1,8 @@
 PRAGMA foreign_keys = ON;
 
 -- Drop all tables in correct dependency order (children first)
+DROP TABLE IF EXISTS saved_calculations;
+DROP TABLE IF EXISTS calculations;
 DROP TABLE IF EXISTS saved_properties;
 DROP TABLE IF EXISTS chat_messages;
 DROP TABLE IF EXISTS chat_sessions;
@@ -9,6 +11,7 @@ DROP TABLE IF EXISTS email_reminders;
 DROP TABLE IF EXISTS subscriptions;
 DROP TABLE IF EXISTS subscription_plans;
 DROP TABLE IF EXISTS market_trends;
+DROP TABLE IF EXISTS taxes;
 DROP TABLE IF EXISTS listings;
 DROP TABLE IF EXISTS users;
 
@@ -143,3 +146,53 @@ CREATE TABLE saved_properties (
 );
 
 CREATE INDEX idx_saved_properties_user ON saved_properties(user_id);
+
+-- Property Tax Rates by Location
+CREATE TABLE taxes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  state TEXT NOT NULL,
+  city TEXT NOT NULL,
+  property_tax_rate REAL NOT NULL, -- percentage
+  sales_tax_rate REAL,
+  transfer_tax REAL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(state, city)
+);
+
+CREATE INDEX idx_taxes_location ON taxes(state, city);
+
+-- Property Calculations
+CREATE TABLE calculations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  listing_id TEXT NOT NULL,
+  purchase_price REAL NOT NULL,
+  down_payment REAL,
+  interest_rate REAL,
+  loan_term_years INTEGER,
+  property_tax REAL,
+  insurance REAL,
+  hoa_fees REAL,
+  total_monthly_payment REAL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_calculations_user ON calculations(user_id);
+CREATE INDEX idx_calculations_listing ON calculations(listing_id);
+
+-- Saved Calculations
+CREATE TABLE saved_calculations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  calculation_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  notes TEXT,
+  saved_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (calculation_id) REFERENCES calculations(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_saved_calculations_user ON saved_calculations(user_id);
+CREATE INDEX idx_saved_calculations_calculation ON saved_calculations(calculation_id);
