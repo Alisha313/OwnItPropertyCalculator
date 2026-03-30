@@ -1,80 +1,77 @@
 import express from "express";
-import { db, initDb } from "../db.js";
+import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
 
 const router = express.Router();
-initDb();
+
+// Initialize MongoDB on first request
+let initialized = false;
+
+async function ensureInitialized() {
+  if (!initialized) {
+    await connectToMongoDB();
+    await seedDatabase();
+    initialized = true;
+  }
+}
 
 /**
  * GET /api/listings?kind=sale|rental&state=&city=&status=&minPrice=&maxPrice=&beds=&baths=&sort=
  * sort options: price_asc, price_desc, beds_desc, baths_desc
  */
-router.get("/", (req, res) => {
-  const {
-    kind,
-    state,
-    city,
-    status,
-    minPrice,
-    maxPrice,
-    beds,
-    baths,
-    sort = "price_asc"
-  } = req.query;
+router.get("/", async (req, res) => {
+  try {
+    await ensureInitialized();
+    
+    const {
+      kind,
+      state,
+      city,
+      status,
+      minPrice,
+      maxPrice,
+      beds,
+      baths,
+      sort = "price_asc"
+    } = req.query;
 
-  if (!kind || (kind !== "sale" && kind !== "rental")) {
-    return res.status(400).json({ error: "kind must be sale or rental" });
-  }
+    if (!kind || (kind !== "sale" && kind !== "rental")) {
+      return res.status(400).json({ error: "kind must be sale or rental" });
+    }
 
-  const where = ["kind = ?"];
-  const params = [kind];
+    const filter = { kind };
 
-  if (state) {
-    where.push("UPPER(state) = UPPER(?)");
-    params.push(state);
-  }
-  if (city) {
-    where.push("LOWER(city) LIKE LOWER(?)");
-    params.push(`%${city}%`);
-  }
-  if (status) {
-    where.push("status = ?");
-    params.push(status);
-  }
-  if (minPrice) {
-    where.push("price >= ?");
-    params.push(Number(minPrice));
-  }
-  if (maxPrice) {
-    where.push("price <= ?");
-    params.push(Number(maxPrice));
-  }
-  if (beds) {
-    where.push("bedrooms >= ?");
-    params.push(Number(beds));
-  }
-  if (baths) {
-    where.push("bathrooms >= ?");
-    params.push(Number(baths));
-  }
+    if (state) filter.state = state.toUpperCase();
+    if (city) filter.city = { $regex: new RegExp(city, "i") };
+    if (status) filter.status = status;
+    if (minPrice) filter.price = { ...filter.price, $gte: Number(minPrice) };
+    if (maxPrice) filter.price = { ...filter.price, $lte: Number(maxPrice) };
+    if (beds) filter.bedrooms = { $gte: Number(beds) };
+    if (baths) filter.bathrooms = { $gte: Number(baths) };
 
-  const sortMap = {
-    price_asc: "price ASC",
-    price_desc: "price DESC",
-    beds_desc: "bedrooms DESC",
-    baths_desc: "bathrooms DESC"
-  };
+    const sortMap = {
+      price_asc: { price: 1 },
+      price_desc: { price: -1 },
+      beds_desc: { bedrooms: -1 },
+      baths_desc: { bathrooms: -1 }
+    };
 
-  const orderBy = sortMap[sort] || sortMap.price_asc;
+    const sortOption = sortMap[sort] || sortMap.price_asc;
 
-  const sql = `
-    SELECT id, kind, type, city, state, address, description, image_url, status, price, bedrooms, bathrooms, sqft, year_built
-    FROM listings
-    WHERE ${where.join(" AND ")}
-    ORDER BY ${orderBy}
-  `;
+    const listings = await mongo.listings()
+      .find(filter)
+      .project({
+        id: 1, kind: 1, type: 1, city: 1, state: 1, address: 1, 
+        description: 1, image_url: 1, status: 1, price: 1, 
+        bedrooms: 1, bathrooms: 1, sqft: 1, year_built: 1
+      })
+      .sort(sortOption)
+      .toArray();
 
-  const rows = db.prepare(sql).all(...params);
-  res.json({ count: rows.length, listings: rows });
+    res.json({ count: listings.length, listings });
+  } catch (error) {
+    console.error("Listings error:", error);
+    res.status(500).json({ error: "Failed to fetch listings" });
+  }
 });
 
 /**
@@ -82,46 +79,53 @@ router.get("/", (req, res) => {
  * Returns listings with lat/lng for map display
  * Public endpoint
  */
-router.get("/map", (req, res) => {
-  const { kind } = req.query;
+router.get("/map", async (req, res) => {
+  try {
+    await ensureInitialized();
+    
+    const { kind } = req.query;
 
-  if (!kind || (kind !== "sale" && kind !== "rental")) {
-    return res.status(400).json({ error: "kind must be sale or rental" });
+    if (!kind || (kind !== "sale" && kind !== "rental")) {
+      return res.status(400).json({ error: "kind must be sale or rental" });
+    }
+
+    const listings = await mongo.listings()
+      .find({
+        kind,
+        status: "active",
+        lat: { $ne: null },
+        lng: { $ne: null }
+      })
+      .project({
+        id: 1, city: 1, state: 1, price: 1, lat: 1, lng: 1,
+        type: 1, bedrooms: 1, bathrooms: 1, address: 1, sqft: 1
+      })
+      .sort({ price: -1 })
+      .toArray();
+
+    res.json({ 
+      count: listings.length, 
+      kind,
+      listings
+    });
+  } catch (error) {
+    console.error("Map listings error:", error);
+    res.status(500).json({ error: "Failed to fetch map listings" });
   }
-
-  const rows = db.prepare(`
-    SELECT id, city, state, price, lat, lng, type, bedrooms, bathrooms, address, sqft
-    FROM listings
-    WHERE kind = ? AND status = 'active' AND lat IS NOT NULL AND lng IS NOT NULL
-    ORDER BY price DESC
-  `).all(kind);
-
-  res.json({ 
-    count: rows.length, 
-    kind,
-    listings: rows.map(r => ({
-      id: r.id,
-      lat: r.lat,
-      lng: r.lng,
-      city: r.city,
-      state: r.state,
-      price: r.price,
-      type: r.type,
-      bedrooms: r.bedrooms,
-      bathrooms: r.bathrooms,
-      address: r.address,
-      sqft: r.sqft
-    }))
-  });
 });
 
-router.get("/:id", (req, res) => {
-  const row = db
-    .prepare("SELECT id, kind, type, city, state, address, description, image_url, status, price, bedrooms, bathrooms, sqft, year_built FROM listings WHERE id = ?")
-    .get(req.params.id);
+router.get("/:id", async (req, res) => {
+  try {
+    await ensureInitialized();
+    
+    const listing = await mongo.listings().findOne({ id: req.params.id });
 
-  if (!row) return res.status(404).json({ error: "Listing not found" });
-  res.json(row);
+    if (!listing) return res.status(404).json({ error: "Listing not found" });
+    res.json(listing);
+  } catch (error) {
+    console.error("Get listing error:", error);
+    res.status(500).json({ error: "Failed to fetch listing" });
+  }
 });
 
 export default router;

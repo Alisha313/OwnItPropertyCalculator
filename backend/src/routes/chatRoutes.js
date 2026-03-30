@@ -1,8 +1,18 @@
 import express from "express";
-import { db } from "../db.js";
-import { requireAuth } from "../middleware/requireAuth.js";
+import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
+import { authenticateToken } from "./authRoutes.js";
 
 const router = express.Router();
+
+let initialized = false;
+
+async function ensureInitialized() {
+  if (!initialized) {
+    await connectToMongoDB();
+    await seedDatabase();
+    initialized = true;
+  }
+}
 
 // AI Agent responses - simulates a real estate agent
 const agentResponses = {
@@ -92,13 +102,36 @@ function getAgentResponse(category) {
   return responses[Math.floor(Math.random() * responses.length)];
 }
 
+function parseDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+async function hasPaidSubscription(userId) {
+  const subscription = await mongo.subscriptions()
+    .findOne(
+      { user_id: userId, status: "active" },
+      { sort: { updated_at: -1 } }
+    );
+
+  if (subscription) {
+    const dbEnd = parseDate(subscription.subscription_end);
+    if (!dbEnd || dbEnd > new Date()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Check if user has free chat access (1 week from registration)
-function checkChatAccess(userId) {
-  const session = db.prepare(`
-    SELECT * FROM chat_sessions 
-    WHERE user_id = ? 
-    ORDER BY started_at DESC LIMIT 1
-  `).get(userId);
+async function checkChatAccess(userId) {
+  const session = await mongo.chat_sessions()
+    .findOne(
+      { user_id: userId },
+      { sort: { started_at: -1 } }
+    );
   
   if (!session) {
     return { hasAccess: true, isNew: true };
@@ -109,159 +142,190 @@ function checkChatAccess(userId) {
   const daysRemaining = Math.ceil((freeAccessEnds - now) / (1000 * 60 * 60 * 24));
   
   // Check if user has paid subscription
-  const subscription = db.prepare(`
-    SELECT * FROM subscriptions 
-    WHERE user_id = ? AND status = 'active'
-  `).get(userId);
-  
-  if (subscription) {
-    return { hasAccess: true, isPaid: true, sessionId: session.id };
+  if (await hasPaidSubscription(userId)) {
+    return { hasAccess: true, isPaid: true, sessionId: session._id };
   }
   
   return {
     hasAccess: daysRemaining > 0,
     daysRemaining: Math.max(0, daysRemaining),
-    sessionId: session.id,
+    sessionId: session._id,
     freeAccessEnds: session.free_access_ends
   };
 }
 
 // Get or create chat session
-router.get("/session", requireAuth, (req, res) => {
-  const userId = req.session.user.id;
-  const access = checkChatAccess(userId);
-  
-  if (access.isNew) {
-    // Create new session with 1 week free access
-    const freeAccessEnds = new Date();
-    freeAccessEnds.setDate(freeAccessEnds.getDate() + 7);
+router.get("/session", authenticateToken, async (req, res) => {
+  try {
+    await ensureInitialized();
     
-    const info = db.prepare(`
-      INSERT INTO chat_sessions (user_id, free_access_ends)
-      VALUES (?, ?)
-    `).run(userId, freeAccessEnds.toISOString());
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const access = await checkChatAccess(req.user.id);
     
-    return res.json({
-      sessionId: info.lastInsertRowid,
+    if (access.isNew) {
+      // Create new session with 1 week free access
+      const freeAccessEnds = new Date();
+      freeAccessEnds.setDate(freeAccessEnds.getDate() + 7);
+      
+      const result = await mongo.chat_sessions().insertOne({
+        user_id: req.user.id,
+        started_at: new Date().toISOString(),
+        free_access_ends: freeAccessEnds.toISOString(),
+        total_messages: 0
+      });
+      
+      return res.json({
+        sessionId: result.insertedId,
+        hasAccess: true,
+        daysRemaining: 7,
+        freeAccessEnds: freeAccessEnds.toISOString(),
+        messages: []
+      });
+    }
+    
+    if (!access.hasAccess) {
+      return res.json({
+        hasAccess: false,
+        message: "Your free week has ended. Subscribe to continue chatting with our AI agent!",
+        daysRemaining: 0
+      });
+    }
+    
+    // Get existing messages
+    const messages = await mongo.chat_messages()
+      .find({ session_id: access.sessionId })
+      .sort({ created_at: 1 })
+      .project({ role: 1, content: 1, created_at: 1 })
+      .toArray();
+    
+    res.json({
+      sessionId: access.sessionId,
       hasAccess: true,
-      daysRemaining: 7,
-      freeAccessEnds: freeAccessEnds.toISOString(),
-      messages: []
+      daysRemaining: access.daysRemaining,
+      isPaid: access.isPaid,
+      messages
     });
+  } catch (error) {
+    console.error("Chat session error:", error);
+    res.status(500).json({ error: "Failed to get chat session" });
   }
-  
-  if (!access.hasAccess) {
-    return res.json({
-      hasAccess: false,
-      message: "Your free week has ended. Subscribe to continue chatting with our AI agent!",
-      daysRemaining: 0
-    });
-  }
-  
-  // Get existing messages
-  const messages = db.prepare(`
-    SELECT role, content, created_at 
-    FROM chat_messages 
-    WHERE session_id = ?
-    ORDER BY created_at ASC
-  `).all(access.sessionId);
-  
-  res.json({
-    sessionId: access.sessionId,
-    hasAccess: true,
-    daysRemaining: access.daysRemaining,
-    isPaid: access.isPaid,
-    messages
-  });
 });
 
 // Send a message and get AI response
-router.post("/message", requireAuth, (req, res) => {
-  const userId = req.session.user.id;
-  const { message } = req.body;
-  
-  if (!message || message.trim().length === 0) {
-    return res.status(400).json({ error: "Message cannot be empty" });
-  }
-  
-  const access = checkChatAccess(userId);
-  
-  if (!access.hasAccess) {
-    return res.status(403).json({
-      error: "Your free week has ended. Subscribe to continue!",
-      upgradeRequired: true
+router.post("/message", authenticateToken, async (req, res) => {
+  try {
+    await ensureInitialized();
+    
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { message } = req.body;
+    
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ error: "Message cannot be empty" });
+    }
+    
+    const access = await checkChatAccess(req.user.id);
+    
+    if (!access.hasAccess) {
+      return res.status(403).json({
+        error: "Your free week has ended. Subscribe to continue!",
+        upgradeRequired: true
+      });
+    }
+    
+    let sessionId = access.sessionId;
+    
+    // Create session if needed
+    if (access.isNew) {
+      const freeAccessEnds = new Date();
+      freeAccessEnds.setDate(freeAccessEnds.getDate() + 7);
+      
+      const result = await mongo.chat_sessions().insertOne({
+        user_id: req.user.id,
+        started_at: new Date().toISOString(),
+        free_access_ends: freeAccessEnds.toISOString(),
+        total_messages: 0
+      });
+      
+      sessionId = result.insertedId;
+    }
+    
+    // Save user message
+    await mongo.chat_messages().insertOne({
+      session_id: sessionId,
+      role: "user",
+      content: message.trim(),
+      created_at: new Date().toISOString()
     });
-  }
-  
-  let sessionId = access.sessionId;
-  
-  // Create session if needed
-  if (access.isNew) {
-    const freeAccessEnds = new Date();
-    freeAccessEnds.setDate(freeAccessEnds.getDate() + 7);
     
-    const info = db.prepare(`
-      INSERT INTO chat_sessions (user_id, free_access_ends)
-      VALUES (?, ?)
-    `).run(userId, freeAccessEnds.toISOString());
+    // Generate AI response
+    const category = categorizeMessage(message);
+    const agentReply = getAgentResponse(category);
     
-    sessionId = info.lastInsertRowid;
+    // Save agent response
+    await mongo.chat_messages().insertOne({
+      session_id: sessionId,
+      role: "agent",
+      content: agentReply,
+      created_at: new Date().toISOString()
+    });
+    
+    // Update message count
+    await mongo.chat_sessions().updateOne(
+      { _id: sessionId },
+      { $inc: { total_messages: 2 } }
+    );
+    
+    res.json({
+      userMessage: message.trim(),
+      agentReply,
+      sessionId
+    });
+  } catch (error) {
+    console.error("Chat message error:", error);
+    res.status(500).json({ error: "Failed to send message" });
   }
-  
-  // Save user message
-  db.prepare(`
-    INSERT INTO chat_messages (session_id, role, content)
-    VALUES (?, 'user', ?)
-  `).run(sessionId, message.trim());
-  
-  // Generate AI response
-  const category = categorizeMessage(message);
-  const agentReply = getAgentResponse(category);
-  
-  // Save agent response
-  db.prepare(`
-    INSERT INTO chat_messages (session_id, role, content)
-    VALUES (?, 'agent', ?)
-  `).run(sessionId, agentReply);
-  
-  // Update message count
-  db.prepare(`
-    UPDATE chat_sessions SET total_messages = total_messages + 2 WHERE id = ?
-  `).run(sessionId);
-  
-  res.json({
-    userMessage: message.trim(),
-    agentReply,
-    sessionId
-  });
 });
 
 // Get chat history
-router.get("/history", requireAuth, (req, res) => {
-  const userId = req.session.user.id;
-  
-  const session = db.prepare(`
-    SELECT * FROM chat_sessions 
-    WHERE user_id = ? 
-    ORDER BY started_at DESC LIMIT 1
-  `).get(userId);
-  
-  if (!session) {
-    return res.json({ messages: [] });
+router.get("/history", authenticateToken, async (req, res) => {
+  try {
+    await ensureInitialized();
+    
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const session = await mongo.chat_sessions()
+      .findOne(
+        { user_id: req.user.id },
+        { sort: { started_at: -1 } }
+      );
+    
+    if (!session) {
+      return res.json({ messages: [] });
+    }
+    
+    const messages = await mongo.chat_messages()
+      .find({ session_id: session._id })
+      .sort({ created_at: 1 })
+      .project({ role: 1, content: 1, created_at: 1 })
+      .toArray();
+    
+    res.json({ 
+      messages,
+      totalMessages: session.total_messages,
+      startedAt: session.started_at
+    });
+  } catch (error) {
+    console.error("Chat history error:", error);
+    res.status(500).json({ error: "Failed to get chat history" });
   }
-  
-  const messages = db.prepare(`
-    SELECT role, content, created_at 
-    FROM chat_messages 
-    WHERE session_id = ?
-    ORDER BY created_at ASC
-  `).all(session.id);
-  
-  res.json({ 
-    messages,
-    totalMessages: session.total_messages,
-    startedAt: session.started_at
-  });
 });
 
 export default router;

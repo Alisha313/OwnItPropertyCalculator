@@ -3,17 +3,33 @@
  *  ------------------------- */
 
 let currentUser = null;
+let authToken = localStorage.getItem("token");
+
+function saveToken(token) {
+  authToken = token;
+  localStorage.setItem("token", token);
+}
+
+function clearToken() {
+  authToken = null;
+  localStorage.removeItem("token");
+}
 
 async function apiFetch(url, options = {}) {
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  
   const res = await fetch(url, {
-    credentials: "include", // IMPORTANT: sends session cookie
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    credentials: "include",
+    headers,
     ...options
   });
 
   // Try to read JSON either way
   let data = null;
-  try { data = await res.json(); } catch {}
+  try { data = await res.json(); } catch { }
 
   if (!res.ok) {
     const msg = data?.error || `Request failed: ${res.status}`;
@@ -46,6 +62,7 @@ async function logout() {
   } catch {
     // even if logout fails, clear UI
   }
+  clearToken();
   setUser(null);
   location.hash = "#/";
 }
@@ -93,10 +110,34 @@ refreshMe(); // loads session user if already logged in
 /** -------------------------
  *  Theme Toggle (light / dark)
  *  ------------------------- */
-const TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 function currentTileUrl() {
-  return TILE_DARK;
+  return document.documentElement.classList.contains('light') ? TILE_LIGHT : TILE_DARK;
 }
+
+// Set dark mode by default if no theme is stored
+if (!localStorage.getItem('theme')) {
+  document.documentElement.classList.add('dark');
+  localStorage.setItem('theme', 'dark');
+}
+
+// Theme toggle click handler
+document.getElementById('themeToggle').addEventListener('click', function() {
+  const isDark = document.documentElement.classList.contains('dark');
+  if (isDark) {
+    document.documentElement.classList.remove('dark');
+    document.documentElement.classList.add('light');
+    localStorage.setItem('theme', 'light');
+    console.log('Theme: Light');
+  } else {
+    document.documentElement.classList.remove('light');
+    document.documentElement.classList.add('dark');
+    localStorage.setItem('theme', 'dark');
+    console.log('Theme: Dark');
+  }
+  window.dispatchEvent(new Event('ownit-theme-change'));
+});
 
 render();
 
@@ -297,7 +338,7 @@ function HomePage() {
     </section>
   `;
 
-   const featured = el.querySelector("#featured");
+  const featured = el.querySelector("#featured");
   featured.innerHTML = `<div class="notice">Loading featured listings...</div>`;
 
   // Quick-pick city loader — fetches BOTH sales + rentals
@@ -309,7 +350,7 @@ function HomePage() {
         apiFetch(`/api/listings?kind=sale&status=active&sort=price_desc${cityQ}`),
         apiFetch(`/api/listings?kind=rental&status=active&sort=price_desc${cityQ}`),
       ]);
-      const sales   = (salesData.listings || []).slice(0, 2);
+      const sales = (salesData.listings || []).slice(0, 2);
       const rentals = (rentalData.listings || []).slice(0, 2);
       const combined = [...sales, ...rentals];
 
@@ -352,7 +393,7 @@ function HomePage() {
       const total = (sd.listings || []).length + (rd.listings || []).length;
       const statEl = el.querySelector('#mapStatListings');
       if (statEl) statEl.textContent = total > 0 ? total : '--';
-    } catch {}
+    } catch { }
   })();
 
   // ---------- Initialize Home Page Map ----------
@@ -518,49 +559,55 @@ function AuthPage() {
   `;
 
   const msg = el.querySelector("#authMsg");
-el.querySelector("#registerForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const data = Object.fromEntries(new FormData(e.target));
+  el.querySelector("#registerForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
 
-  try {
-    const res = await apiFetch("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({
-        name: data.name,
-        email: data.email,
-        password: data.password
-      })
-    });
+    try {
+      const res = await apiFetch("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          password: data.password
+        })
+      });
 
-    setUser(res.user);
-    location.hash = "#/";
-  } catch (err) {
-    msg.textContent = err.message;
-    msg.classList.remove("hidden");
-  }
-});
+      if (res.token) {
+        saveToken(res.token);
+      }
+      setUser(res.user);
+      location.hash = "#/";
+    } catch (err) {
+      msg.textContent = err.message;
+      msg.classList.remove("hidden");
+    }
+  });
 
 
   el.querySelector("#loginForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const data = Object.fromEntries(new FormData(e.target));
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
 
-  try {
-    const res = await apiFetch("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({
-        email: data.email,
-        password: data.password
-      })
-    });
+    try {
+      const res = await apiFetch("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password
+        })
+      });
 
-    setUser(res.user);
-    location.hash = "#/";
-  } catch (err) {
-    msg.textContent = err.message;
-    msg.classList.remove("hidden");
-  }
-});
+      if (res.token) {
+        saveToken(res.token);
+      }
+      setUser(res.user);
+      location.hash = "#/";
+    } catch (err) {
+      msg.textContent = err.message;
+      msg.classList.remove("hidden");
+    }
+  });
 
 
   return el;
@@ -603,6 +650,12 @@ function ListingsPage(kind) {
 
     <div class="listings-filters card">
       <div class="card__body">
+        <div class="filters-header">
+          <div class="filters-header__title">
+            <span class="filters-header__icon">🔍</span>
+            Filter Properties
+          </div>
+        </div>
         <div class="filters-grid">
           <div class="field">
             <label>State</label>
@@ -636,6 +689,8 @@ function ListingsPage(kind) {
             <label>Baths (min)</label>
             <input id="fBaths" type="number" placeholder="0" />
           </div>
+        </div>
+        <div class="filters-action-row">
           <div class="field">
             <label>Sort by</label>
             <select id="fSort">
@@ -645,9 +700,9 @@ function ListingsPage(kind) {
               <option value="baths_desc">Bathrooms: Most</option>
             </select>
           </div>
-          <div class="field filter-buttons">
-            <button id="applyBtn" class="btn btn--primary" type="button">Search</button>
+          <div class="filter-buttons">
             <button id="resetBtn" class="btn" type="button">↺ Reset</button>
+            <button id="applyBtn" class="btn btn--primary" type="button">🔍 Search</button>
           </div>
         </div>
       </div>
@@ -702,7 +757,7 @@ function ListingsPage(kind) {
       const data = await apiFetch(`/api/listings?${params.toString()}`);
       const list = data.listings || [];
       count.innerHTML = `<span class="count-number">${list.length}</span> ${kind === "sale" ? "properties" : "rentals"} found`;
-      
+
       if (list.length === 0) {
         grid.innerHTML = `<div class="no-results">
           <span class="no-results-icon"></span>
@@ -741,7 +796,7 @@ function cardListingNew(l, kind) {
   const statusText = l.status === "active" ? "Active" : (isRent ? "Rented" : "Sold");
   const defaultImg = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800";
   const imgUrl = l.image_url || defaultImg;
-  
+
   return `
     <div class="listing-card" onclick="location.hash='#/listing/${l.id}'" style="cursor:pointer;">
       <div class="listing-card__image" style="background-image: url('${imgUrl}');">
@@ -887,7 +942,7 @@ function MortgagePage() {
   };
 
   // Generate state options for rental calculator
-  const rentalStateOptions = '<option value="">Select a State</option>' + 
+  const rentalStateOptions = '<option value="">Select a State</option>' +
     Object.entries(stateCities)
       .sort((a, b) => {
         const nameA = stateRates[a[0]]?.name || a[0];
@@ -1352,8 +1407,8 @@ function MortgagePage() {
 
   // Populate state rates grid
   const sortedStates = Object.entries(stateRates).sort((a, b) => a[1].name.localeCompare(b[1].name));
-  const avgRate = (sortedStates.reduce((sum, [,d]) => sum + d.rate, 0) / sortedStates.length).toFixed(2);
-  
+  const avgRate = (sortedStates.reduce((sum, [, d]) => sum + d.rate, 0) / sortedStates.length).toFixed(2);
+
   stateRatesGrid.innerHTML = sortedStates.map(([code, data]) => {
     const isLow = data.rate < avgRate;
     const isHigh = data.rate > 6.85;
@@ -1391,17 +1446,17 @@ function MortgagePage() {
   function createDonutChart(data) {
     const total = data.reduce((sum, d) => sum + d.value, 0);
     if (total === 0) return '';
-    
+
     let cumulative = 0;
     const radius = 40;
     const circumference = 2 * Math.PI * radius;
-    
+
     return data.filter(d => d.value > 0).map(d => {
       const percent = d.value / total;
       const dashArray = percent * circumference;
       const dashOffset = -cumulative * circumference;
       cumulative += percent;
-      
+
       return `<circle
         cx="50" cy="50" r="${radius}"
         fill="none"
@@ -1486,7 +1541,7 @@ function MortgagePage() {
 
     // Amortization schedule
     const am = amortizationSchedule({ homePrice, downPayment, annualRatePct: rate, termYears });
-    
+
     // Update total interest and cost
     const lastRow = am.rows[am.rows.length - 1];
     totalInterestEl.textContent = money(lastRow?.cumulativeInterest || 0);
@@ -1507,7 +1562,7 @@ function MortgagePage() {
   // State selector - auto-fill interest rate
   const stateSelect = el.querySelector("#stateSelect");
   const rateInput = el.querySelector("#rate");
-  
+
   stateSelect.addEventListener("change", () => {
     const stateCode = stateSelect.value;
     if (stateCode && stateRates[stateCode]) {
@@ -1517,7 +1572,7 @@ function MortgagePage() {
   });
 
   el.querySelector("#calcBtn").addEventListener("click", calc);
-  
+
   // Also calculate on input change for live updates
   el.querySelectorAll('#mortgageCalcSection input, #mortgageCalcSection select').forEach(input => {
     input.addEventListener('change', calc);
@@ -1594,7 +1649,7 @@ function MortgagePage() {
     let affordabilityStatus = 'Excellent';
     let affordabilityClass = 'excellent';
     let affordabilityTip = 'Great! Your housing costs are well within budget.';
-    
+
     if (rentPercent > 50) {
       affordabilityStatus = 'Not Recommended';
       affordabilityClass = 'danger';
@@ -1697,11 +1752,11 @@ function MortgagePage() {
   // State/City dropdown logic for rental calculator
   const rentalStateSelect = el.querySelector("#rentalState");
   const rentalCitySelect = el.querySelector("#rentalCity");
-  
-  rentalStateSelect.addEventListener("change", function() {
+
+  rentalStateSelect.addEventListener("change", function () {
     const selectedState = this.value;
     rentalCitySelect.innerHTML = '';
-    
+
     if (selectedState && stateCities[selectedState]) {
       rentalCitySelect.innerHTML = '<option value="">Select a City</option>' +
         stateCities[selectedState].map(city => `<option value="${city}">${city}</option>`).join('');
@@ -1723,7 +1778,7 @@ function MortgagePage() {
 
   function switchCalculator(type) {
     activeCalc = type;
-    
+
     if (type === "mortgage") {
       mortgageCalcBtn.classList.add("calc-type-btn--active");
       rentalCalcBtn.classList.remove("calc-type-btn--active");
@@ -1740,7 +1795,7 @@ function MortgagePage() {
 
   mortgageCalcBtn.addEventListener("click", () => switchCalculator("mortgage"));
   rentalCalcBtn.addEventListener("click", () => switchCalculator("rental"));
-  
+
   calc();
   return el;
 }
@@ -1901,25 +1956,25 @@ function SubscriptionPage() {
       <div class="card"><div class="card__body">
         <div id="paymentStatus" class="card__muted">Loading...</div>
         <div id="paymentForm" style="display:none;margin-top:14px;">
-          <div class="card__muted" style="margin-bottom:10px;">
-             Simulated payment — in production this would use Stripe/PayPal
+          <div class="notice" style="margin-bottom:12px; font-size:13px; background:rgba(59,130,246,0.1); color:#1d4ed8; border:1px solid rgba(59,130,246,0.2);">
+             <strong>Testing Environment:</strong> Enter any fake credit card. Your payment information is <strong>never stored</strong> and is securely discarded after this step.
           </div>
           <div style="display:grid;gap:10px;">
             <div class="field">
               <label>Card Number</label>
-              <input id="cardNumber" placeholder="4242 4242 4242 4242" />
+              <input id="cardNumber" placeholder="4242 4242 4242 4242" maxlength="19" oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/(.{4})/g, '$1 ').trim();" />
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <div class="field">
-                <label>Expiry</label>
-                <input id="cardExpiry" placeholder="MM/YY" />
+                <label>Expiry Date</label>
+                <input id="cardExpiry" placeholder="MM/YY" maxlength="5" oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/^([2-9])$/g, '0$1').replace(/^(1[3-9])$/g, '01').replace(/^([0-1][0-9])([0-9]{1,2})$/g, '$1/$2');" />
               </div>
               <div class="field">
-                <label>CVV</label>
-                <input id="cardCvv" placeholder="123" />
+                <label>CVV / CVC</label>
+                <input id="cardCvv" placeholder="123" maxlength="4" oninput="this.value = this.value.replace(/[^0-9]/g, '');" />
               </div>
             </div>
-            <button id="addPaymentBtn" class="btn btn--primary">💳 Add Payment Method</button>
+            <button id="addPaymentBtn" class="btn btn--primary" style="margin-top:4px;">💳 Securely Add (Fake) Payment Method</button>
           </div>
         </div>
       </div></div>
@@ -1931,6 +1986,14 @@ function SubscriptionPage() {
       <div class="sub-actions">
         <button id="activateBtn" class="btn btn--primary" style="display:none;">🚀 Activate Subscription</button>
         <button id="cancelBtn" class="btn btn--danger" style="display:none;">✖ Cancel Subscription</button>
+      </div>
+      <div id="cancelConfirm" style="display:none; margin-top:12px; padding:16px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px;">
+        <div style="font-weight:600; color:#b91c1c; margin-bottom:8px;">Are you absolutely sure you want to cancel?</div>
+        <div style="font-size:13px; color:#991b1b; margin-bottom:12px;">You will lose access to premium features immediately.</div>
+        <div style="display:flex; gap:10px;">
+          <button id="cancelConfirmYes" class="btn btn--danger">Yes, Cancel Subscription</button>
+          <button id="cancelConfirmNo" class="btn">Keep Subscription</button>
+        </div>
       </div>
     </div>
 
@@ -2010,7 +2073,7 @@ function SubscriptionPage() {
             <div class="sub-status__sub">
               ${status === 'trial' ? `${days} days remaining • Trial ends ${new Date(subData.trial_end).toLocaleDateString()}` : ''}
               ${status === 'active' ? `Plan: ${subData.plan_name || 'N/A'} • Ends ${new Date(subData.subscription_end).toLocaleDateString()}` : ''}
-              ${status === 'cancelled' ? 'Your subscription has been cancelled.' : ''}
+              ${status === 'cancelled' ? 'Your subscription has been cancelled. You can reactivate at any time.' : ''}
               ${status === 'expired' ? 'Your subscription has expired. Select a plan to reactivate.' : ''}
             </div>
             ${subData.plan_name ? `<div class="sub-status__plan">Plan: <b>${subData.plan_name}</b> (${subData.billing_cycle}) — $${subData.price}/${subData.billing_cycle === 'monthly' ? 'mo' : 'yr'}</div>` : ''}
@@ -2019,14 +2082,23 @@ function SubscriptionPage() {
         </div>
       `;
 
-      // Show/hide action buttons
-      if ((status === "trial" || status === "expired") && subData.plan_id && subData.payment_method_added) {
+      // Show/hide action buttons with explicit next-step guidance
+      const activationEligibleStatus = status === "trial" || status === "expired" || status === "cancelled";
+      const canActivateNow = activationEligibleStatus && subData.plan_id && subData.payment_method_added;
+
+      if (activationEligibleStatus) {
         activateBtn.style.display = "inline-flex";
+        activateBtn.disabled = !canActivateNow;
+        activateBtn.textContent = canActivateNow
+          ? "🚀 Activate Subscription"
+          : (subData.plan_id ? "💳 Add Payment Method to Activate" : "🧭 Select a Plan to Activate");
       } else {
         activateBtn.style.display = "none";
+        activateBtn.disabled = false;
+        activateBtn.textContent = "🚀 Activate Subscription";
       }
 
-      if (status === "trial" || status === "active") {
+      if (status === "active" || (status === "trial" && subData.plan_id)) {
         cancelBtn.style.display = "inline-flex";
       } else {
         cancelBtn.style.display = "none";
@@ -2034,11 +2106,15 @@ function SubscriptionPage() {
 
       // Payment section
       if (subData.payment_method_added) {
-        paymentStatusEl.textContent = " Payment method on file.";
+        paymentStatusEl.textContent = subData.plan_id
+          ? "Payment method on file. You can activate your subscription now."
+          : "Payment method on file. Select a plan to continue.";
         paymentFormEl.style.display = "none";
       } else {
-        paymentStatusEl.textContent = "No payment method added yet.";
-        paymentFormEl.style.display = "block";
+        paymentStatusEl.textContent = subData.plan_id
+          ? "No payment method added yet."
+          : "Select a plan first, then add your payment method.";
+        paymentFormEl.style.display = subData.plan_id ? "block" : "none";
       }
 
     } catch (err) {
@@ -2074,11 +2150,11 @@ function SubscriptionPage() {
         btn.addEventListener('click', async () => {
           const planId = Number(btn.dataset.planId);
           try {
-            await apiFetch("/api/subscriptions/select-plan", {
+            const res = await apiFetch("/api/subscriptions/select-plan", {
               method: "POST",
               body: JSON.stringify({ planId })
             });
-            showMsg("Plan selected! Add a payment method to activate after trial.");
+            showMsg(res.message || "Plan selected.");
             await loadSubscriptionStatus();
             await loadPlans();
           } catch (err) {
@@ -2093,12 +2169,26 @@ function SubscriptionPage() {
 
   // UC14: Add payment method
   el.querySelector("#addPaymentBtn").addEventListener("click", async () => {
+    if (!subData?.plan_id) {
+      showMsg("Select a subscription plan first.", "error");
+      return;
+    }
+
+    const cc = el.querySelector("#cardNumber").value.replace(/\s/g, '');
+    const exp = el.querySelector("#cardExpiry").value;
+    const cvv = el.querySelector("#cardCvv").value;
+
+    if (cc.length < 15 || exp.length < 4 || cvv.length < 3) {
+      showMsg("Please enter a realistic fake card number, expiry, and CVV.", "error");
+      return;
+    }
+
     try {
       await apiFetch("/api/subscriptions/add-payment-method", {
         method: "POST",
         body: JSON.stringify({ paymentDetails: { simulated: true } })
       });
-      showMsg("Payment method added! You won't be charged until your trial ends.");
+      showMsg("Payment method added! Click Activate Subscription in Actions.");
       await loadSubscriptionStatus();
     } catch (err) {
       showMsg(err.message, "error");
@@ -2118,8 +2208,21 @@ function SubscriptionPage() {
   });
 
   // UC16: Cancel subscription
-  cancelBtn.addEventListener("click", async () => {
-    if (!confirm("Are you sure you want to cancel your subscription?")) return;
+  const cancelConfirmEl = el.querySelector("#cancelConfirm");
+
+  cancelBtn.addEventListener("click", () => {
+    cancelConfirmEl.style.display = "block";
+    cancelBtn.style.display = "none";
+  });
+
+  el.querySelector("#cancelConfirmNo").addEventListener("click", () => {
+    cancelConfirmEl.style.display = "none";
+    cancelBtn.style.display = "inline-flex";
+  });
+
+  el.querySelector("#cancelConfirmYes").addEventListener("click", async () => {
+    cancelConfirmEl.style.display = "none";
+    cancelBtn.style.display = "inline-flex"; // Restore for visual consistency before reload
     try {
       await apiFetch("/api/subscriptions/cancel", { method: "POST" });
       showMsg("Subscription cancelled.");
@@ -2211,10 +2314,10 @@ function filterAndSort(list, filters) {
   if (bathrooms != null) out = out.filter(l => l.bathrooms >= bathrooms);
 
   const sorters = {
-    price_asc: (a,b) => a.price - b.price,
-    price_desc: (a,b) => b.price - a.price,
-    beds_desc: (a,b) => b.bedrooms - a.bedrooms,
-    baths_desc: (a,b) => b.bathrooms - a.bathrooms,
+    price_asc: (a, b) => a.price - b.price,
+    price_desc: (a, b) => b.price - a.price,
+    beds_desc: (a, b) => b.bedrooms - a.bedrooms,
+    baths_desc: (a, b) => b.bathrooms - a.bathrooms,
   };
   if (sortBy && sorters[sortBy]) out.sort(sorters[sortBy]);
 
@@ -2322,16 +2425,16 @@ function monthlyHousingCost({
 /** -------------------------
  *  Utils
  *  ------------------------- */
-function num(v){ return Number(v || 0); }
-function numOrNull(v){ return v === "" || v == null ? null : Number(v); }
-function round2(x){ return Math.round((x + Number.EPSILON) * 100) / 100; }
-function money(n, isRent=false){
+function num(v) { return Number(v || 0); }
+function numOrNull(v) { return v === "" || v == null ? null : Number(v); }
+function round2(x) { return Math.round((x + Number.EPSILON) * 100) / 100; }
+function money(n, isRent = false) {
   const v = Number(n || 0);
   const s = v.toLocaleString(undefined, { maximumFractionDigits: 0 });
   return isRent ? `$${s}/mo` : `$${s}`;
 }
-function cap(s){ return (s||"").charAt(0).toUpperCase() + (s||"").slice(1); }
-function kv(k,v){
+function cap(s) { return (s || "").charAt(0).toUpperCase() + (s || "").slice(1); }
+function kv(k, v) {
   return `<div class="notice" style="display:flex;justify-content:space-between;gap:10px;">
     <span>${k}</span><b>${v}</b>
   </div>`;
@@ -2347,7 +2450,7 @@ let chatMessages = [];
 function initChatWidget() {
   // Prevent duplicate initialization
   if (document.querySelector('.chat-widget')) return;
-  
+
   // Create chat widget HTML
   const widget = document.createElement('div');
   widget.className = 'chat-widget';
@@ -2402,7 +2505,7 @@ function initChatWidget() {
   document.getElementById('chatInput').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendChatMessage();
   });
-  
+
   // AI feature button listeners
   document.getElementById('aiValuationBtn').addEventListener('click', showAiValuationPrompt);
   document.getElementById('aiTrendsBtn').addEventListener('click', showAiMarketTrends);
@@ -2412,7 +2515,7 @@ function initChatWidget() {
 async function toggleChat(forceState) {
   chatOpen = typeof forceState === 'boolean' ? forceState : !chatOpen;
   const window = document.getElementById('chatWindow');
-  
+
   if (chatOpen) {
     window.classList.add('open');
     await loadChatSession();
@@ -2426,7 +2529,7 @@ async function loadChatSession() {
   const messagesEl = document.getElementById('chatMessages');
   const inputArea = document.getElementById('chatInputArea');
   const freeBanner = document.getElementById('chatFreeBanner');
-  
+
   // Check if user is logged in
   if (!currentUser) {
     messagesEl.innerHTML = `
@@ -2447,7 +2550,7 @@ async function loadChatSession() {
   try {
     const data = await apiFetch('/api/chat/session');
     chatSession = data;
-    
+
     if (!data.hasAccess) {
       // Free week expired
       messagesEl.innerHTML = `
@@ -2464,7 +2567,7 @@ async function loadChatSession() {
       freeBanner.style.display = 'none';
       return;
     }
-    
+
     // Show free banner
     if (!data.isPaid) {
       freeBanner.style.display = 'block';
@@ -2473,10 +2576,10 @@ async function loadChatSession() {
       freeBanner.innerHTML = '⭐ <strong>Premium access</strong> • Unlimited chat';
       freeBanner.style.display = 'block';
     }
-    
+
     inputArea.style.display = 'flex';
     chatMessages = data.messages || [];
-    
+
     // Render messages or welcome
     if (chatMessages.length === 0) {
       messagesEl.innerHTML = `
@@ -2495,7 +2598,7 @@ async function loadChatSession() {
     } else {
       renderChatMessages();
     }
-    
+
   } catch (err) {
     messagesEl.innerHTML = `
       <div class="notice" style="color: var(--danger);">
@@ -2512,7 +2615,7 @@ function renderChatMessages() {
       ${escapeHtml(msg.content)}
     </div>
   `).join('');
-  
+
   // Scroll to bottom
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
@@ -2520,17 +2623,17 @@ function renderChatMessages() {
 async function sendChatMessage() {
   const input = document.getElementById('chatInput');
   const message = input.value.trim();
-  
+
   if (!message || !currentUser) return;
-  
+
   input.value = '';
   input.disabled = true;
   document.getElementById('chatSend').disabled = true;
-  
+
   // Add user message immediately
   chatMessages.push({ role: 'user', content: message });
   renderChatMessages();
-  
+
   // Show typing indicator
   const messagesEl = document.getElementById('chatMessages');
   const typingEl = document.createElement('div');
@@ -2538,26 +2641,26 @@ async function sendChatMessage() {
   typingEl.innerHTML = '<span></span><span></span><span></span>';
   messagesEl.appendChild(typingEl);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  
+
   try {
     // Simulate slight delay for realism
     await new Promise(r => setTimeout(r, 800 + Math.random() * 700));
-    
+
     const data = await apiFetch('/api/chat/message', {
       method: 'POST',
       body: JSON.stringify({ message })
     });
-    
+
     // Remove typing indicator
     typingEl.remove();
-    
+
     // Add agent response
     chatMessages.push({ role: 'agent', content: data.agentReply });
     renderChatMessages();
-    
+
   } catch (err) {
     typingEl.remove();
-    
+
     if (err.message.includes('Subscribe')) {
       // Access expired
       loadChatSession();
@@ -2566,7 +2669,7 @@ async function sendChatMessage() {
       renderChatMessages();
     }
   }
-  
+
   input.disabled = false;
   document.getElementById('chatSend').disabled = false;
   input.focus();
@@ -2579,7 +2682,7 @@ function showToast(message, type = 'info') {
   // Remove existing toast
   const existing = document.querySelector('.toast-notification');
   if (existing) existing.remove();
-  
+
   const toast = document.createElement('div');
   toast.className = `toast-notification toast-notification--${type}`;
   toast.textContent = message;
@@ -2598,7 +2701,7 @@ function showToast(message, type = 'info') {
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   `;
   document.body.appendChild(toast);
-  
+
   setTimeout(() => toast.remove(), 3000);
 }
 
@@ -2611,9 +2714,9 @@ async function showAiValuationPrompt() {
     showToast('Please log in to use AI features', 'warning');
     return;
   }
-  
+
   const messagesEl = document.getElementById('chatMessages');
-  
+
   // Show listing selection UI
   messagesEl.innerHTML += `
     <div class="chat-message chat-message--agent">
@@ -2629,9 +2732,9 @@ async function showAiValuationPrompt() {
       </div>
     </div>
   `;
-  
+
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  
+
   // Add submit handler
   document.getElementById('aiValuationSubmit').addEventListener('click', async () => {
     const listingId = document.getElementById('aiValuationInput').value;
@@ -2641,7 +2744,7 @@ async function showAiValuationPrompt() {
     }
     await fetchAiValuation(parseInt(listingId));
   });
-  
+
   document.getElementById('aiValuationInput').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       document.getElementById('aiValuationSubmit').click();
@@ -2651,22 +2754,22 @@ async function showAiValuationPrompt() {
 
 async function fetchAiValuation(listingId) {
   const messagesEl = document.getElementById('chatMessages');
-  
+
   // Show loading
   const loadingEl = document.createElement('div');
   loadingEl.className = 'chat-message chat-message--agent';
   loadingEl.innerHTML = '<div class="chat-typing"><span></span><span></span><span></span></div> Analyzing property...';
   messagesEl.appendChild(loadingEl);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  
+
   try {
     const data = await apiFetch(`/api/ai/valuation?listingId=${listingId}`);
     loadingEl.remove();
-    
+
     const diffPercent = ((data.estimatedValue - data.listing.price) / data.listing.price * 100).toFixed(1);
     const diffClass = diffPercent >= 0 ? 'above' : 'below';
     const confidenceClass = data.compsUsed >= 3 ? 'high' : data.compsUsed >= 2 ? 'medium' : 'low';
-    
+
     messagesEl.innerHTML += `
       <div class="chat-message chat-message--agent">
         <div class="ai-valuation">
@@ -2691,9 +2794,9 @@ async function fetchAiValuation(listingId) {
         </div>
       </div>
     `;
-    
+
     messagesEl.scrollTop = messagesEl.scrollHeight;
-    
+
   } catch (err) {
     loadingEl.innerHTML = `❌ ${err.message || 'Failed to get valuation. Please try a different listing ID.'}`;
   }
@@ -2704,9 +2807,9 @@ async function showAiMarketTrends() {
     showToast('Please log in to use AI features', 'warning');
     return;
   }
-  
+
   const messagesEl = document.getElementById('chatMessages');
-  
+
   // Show city selection UI
   messagesEl.innerHTML += `
     <div class="chat-message chat-message--agent">
@@ -2721,9 +2824,9 @@ async function showAiMarketTrends() {
       </div>
     </div>
   `;
-  
+
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  
+
   // Add submit handler
   document.getElementById('aiTrendsSubmit').addEventListener('click', async () => {
     const city = document.getElementById('aiTrendsCity').value.trim();
@@ -2734,7 +2837,7 @@ async function showAiMarketTrends() {
     }
     await fetchAiMarketTrends(city, state);
   });
-  
+
   document.getElementById('aiTrendsState').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       document.getElementById('aiTrendsSubmit').click();
@@ -2744,18 +2847,18 @@ async function showAiMarketTrends() {
 
 async function fetchAiMarketTrends(city, state) {
   const messagesEl = document.getElementById('chatMessages');
-  
+
   // Show loading
   const loadingEl = document.createElement('div');
   loadingEl.className = 'chat-message chat-message--agent';
   loadingEl.innerHTML = '<div class="chat-typing"><span></span><span></span><span></span></div> Analyzing market data...';
   messagesEl.appendChild(loadingEl);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  
+
   try {
     const data = await apiFetch(`/api/ai/market-trends?city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}`);
     loadingEl.remove();
-    
+
     if (!data.series || data.series.length === 0) {
       messagesEl.innerHTML += `
         <div class="chat-message chat-message--agent">
@@ -2765,11 +2868,11 @@ async function fetchAiMarketTrends(city, state) {
       messagesEl.scrollTop = messagesEl.scrollHeight;
       return;
     }
-    
+
     // Create chart container
     const chartId = 'aiChart_' + Date.now();
     const growthClass = data.summary.totalGrowthPercent >= 0 ? 'up' : 'down';
-    
+
     messagesEl.innerHTML += `
       <div class="chat-message chat-message--agent">
         <div class="ai-chart-container" style="min-height: 320px;">
@@ -2796,16 +2899,16 @@ async function fetchAiMarketTrends(city, state) {
         </div>
       </div>
     `;
-    
+
     messagesEl.scrollTop = messagesEl.scrollHeight;
-    
+
     // Initialize chart
     setTimeout(() => {
       const ctx = document.getElementById(chartId);
       if (ctx && typeof Chart !== 'undefined') {
         const labels = data.series.map(s => `Q${s.quarter} ${s.year}`);
         const prices = data.series.map(s => s.pricePerSqft);
-        
+
         new Chart(ctx, {
           type: 'line',
           data: {
@@ -2841,7 +2944,7 @@ async function fetchAiMarketTrends(city, state) {
         });
       }
     }, 100);
-    
+
   } catch (err) {
     loadingEl.innerHTML = `❌ ${err.message || 'Failed to fetch market trends.'}`;
   }
@@ -2852,9 +2955,9 @@ async function showAiMapView() {
     showToast('Please log in to use AI features', 'warning');
     return;
   }
-  
+
   const messagesEl = document.getElementById('chatMessages');
-  
+
   // Show map type selection
   messagesEl.innerHTML += `
     <div class="chat-message chat-message--agent">
@@ -2867,9 +2970,9 @@ async function showAiMapView() {
       </div>
     </div>
   `;
-  
+
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  
+
   // Add handlers
   document.getElementById('mapViewSale').addEventListener('click', () => showMapInChat('sale'));
   document.getElementById('mapViewRental').addEventListener('click', () => showMapInChat('rental'));
@@ -2878,19 +2981,19 @@ async function showAiMapView() {
 
 async function showMapInChat(kind) {
   const messagesEl = document.getElementById('chatMessages');
-  
+
   // Show loading
   const loadingEl = document.createElement('div');
   loadingEl.className = 'chat-message chat-message--agent';
   loadingEl.innerHTML = '<div class="chat-typing"><span></span><span></span><span></span></div> Loading map data...';
   messagesEl.appendChild(loadingEl);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  
+
   try {
     const url = kind ? `/api/listings/map?kind=${kind}` : '/api/listings/map';
     const listings = await apiFetch(url);
     loadingEl.remove();
-    
+
     if (listings.length === 0) {
       messagesEl.innerHTML += `
         <div class="chat-message chat-message--agent">
@@ -2899,11 +3002,11 @@ async function showMapInChat(kind) {
       `;
       return;
     }
-    
+
     // Create map container
     const mapId = 'aiMap_' + Date.now();
     const kindLabel = kind === 'sale' ? 'For Sale' : kind === 'rental' ? 'For Rent' : 'All';
-    
+
     messagesEl.innerHTML += `
       <div class="chat-message chat-message--agent" style="padding: 0;">
         <div class="ai-map-container">
@@ -2915,24 +3018,24 @@ async function showMapInChat(kind) {
         </div>
       </div>
     `;
-    
+
     messagesEl.scrollTop = messagesEl.scrollHeight;
-    
+
     // Initialize Leaflet map
     setTimeout(() => {
       if (typeof L !== 'undefined') {
         const mapEl = document.getElementById(mapId);
         if (!mapEl) return;
-        
+
         // Find center point from listings
         const validListings = listings.filter(l => l.lat && l.lng);
         if (validListings.length === 0) return;
-        
+
         const avgLat = validListings.reduce((s, l) => s + l.lat, 0) / validListings.length;
         const avgLng = validListings.reduce((s, l) => s + l.lng, 0) / validListings.length;
-        
+
         const map = L.map(mapId).setView([avgLat, avgLng], 10);
-        
+
         let aiTileLayer = L.tileLayer(currentTileUrl(), {
           maxZoom: 19, attribution: ''
         }).addTo(map);
@@ -2941,13 +3044,13 @@ async function showMapInChat(kind) {
           map.removeLayer(aiTileLayer);
           aiTileLayer = L.tileLayer(currentTileUrl(), { maxZoom: 19, attribution: '' }).addTo(map);
         });
-        
+
         // Add markers
         validListings.forEach(listing => {
-          const price = listing.kind === 'rental' 
-            ? `$${listing.price.toLocaleString()}/mo` 
+          const price = listing.kind === 'rental'
+            ? `$${listing.price.toLocaleString()}/mo`
             : `$${listing.price.toLocaleString()}`;
-          
+
           const marker = L.marker([listing.lat, listing.lng]).addTo(map);
           marker.bindPopup(`
             <div class="map-popup">
@@ -2960,13 +3063,13 @@ async function showMapInChat(kind) {
             </div>
           `);
         });
-        
+
         // Fit bounds to show all markers
         const bounds = L.latLngBounds(validListings.map(l => [l.lat, l.lng]));
         map.fitBounds(bounds, { padding: [30, 30] });
       }
     }, 100);
-    
+
   } catch (err) {
     loadingEl.innerHTML = `❌ ${err.message || 'Failed to load map data.'}`;
   }
