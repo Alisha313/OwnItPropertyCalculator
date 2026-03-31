@@ -397,7 +397,7 @@ function HomePage() {
   })();
 
   // ---------- Initialize Home Page Map ----------
-  setTimeout(() => {
+  setTimeout(async () => {
     const mapContainer = el.querySelector("#homeMap");
     if (!mapContainer || typeof L === "undefined") return;
 
@@ -415,9 +415,97 @@ function HomePage() {
       attribution: ''
     }).addTo(map);
 
+    // ── State Choropleth ──────────────────────────────────────────────────────
+    const STATE_NAME_TO_ABBR = {
+      "Alabama":"AL","Alaska":"AK","Arizona":"AZ","Arkansas":"AR","California":"CA",
+      "Colorado":"CO","Connecticut":"CT","Delaware":"DE","Florida":"FL","Georgia":"GA",
+      "Hawaii":"HI","Idaho":"ID","Illinois":"IL","Indiana":"IN","Iowa":"IA",
+      "Kansas":"KS","Kentucky":"KY","Louisiana":"LA","Maine":"ME","Maryland":"MD",
+      "Massachusetts":"MA","Michigan":"MI","Minnesota":"MN","Mississippi":"MS","Missouri":"MO",
+      "Montana":"MT","Nebraska":"NE","Nevada":"NV","New Hampshire":"NH","New Jersey":"NJ",
+      "New Mexico":"NM","New York":"NY","North Carolina":"NC","North Dakota":"ND","Ohio":"OH",
+      "Oklahoma":"OK","Oregon":"OR","Pennsylvania":"PA","Rhode Island":"RI","South Carolina":"SC",
+      "South Dakota":"SD","Tennessee":"TN","Texas":"TX","Utah":"UT","Vermont":"VT",
+      "Virginia":"VA","Washington":"WA","West Virginia":"WV","Wisconsin":"WI","Wyoming":"WY"
+    };
+    // US geographic regions — ensures visual grouping and contrast
+    const STATE_REGION = {
+      ME:'ne',NH:'ne',VT:'ne',MA:'ne',RI:'ne',CT:'ne',NY:'ne',NJ:'ne',PA:'ne',
+      DE:'se',MD:'se',VA:'se',WV:'se',NC:'se',SC:'se',GA:'se',FL:'se',
+      AL:'se',MS:'se',TN:'se',KY:'se',AR:'se',LA:'se',
+      OH:'mw',IN:'mw',IL:'mw',MI:'mw',WI:'mw',MN:'mw',IA:'mw',
+      MO:'mw',ND:'mw',SD:'mw',NE:'mw',KS:'mw',
+      TX:'sc',OK:'sc',
+      MT:'mt',WY:'mt',CO:'mt',NM:'mt',AZ:'mt',UT:'mt',ID:'mt',NV:'mt',
+      WA:'pc',OR:'pc',CA:'pc',AK:'pc',HI:'pc',
+    };
+    const REGION_COLORS = {
+      light: {
+        ne: { fill:'#bdd7f5', border:'#7aaee0', hover:'#89c0f0' },  // sky blue
+        se: { fill:'#f5c0d0', border:'#e0809a', hover:'#f09ab5' },  // rose
+        mw: { fill:'#b8f0c8', border:'#60c880', hover:'#88e0a8' },  // green
+        sc: { fill:'#f5e0a8', border:'#e0b840', hover:'#f0cc70' },  // amber
+        mt: { fill:'#d8c0f5', border:'#a870e0', hover:'#c098f0' },  // violet
+        pc: { fill:'#a8edf5', border:'#40c0d8', hover:'#78ddf0' },  // teal
+      },
+      dark: {
+        ne: { fill:'#1e3c72', border:'#3a70cc', hover:'#2a52a0' },  // deep blue
+        se: { fill:'#72183c', border:'#cc3a70', hover:'#a02852' },  // deep rose
+        mw: { fill:'#1a5c30', border:'#3aaf5a', hover:'#268040' },  // deep green
+        sc: { fill:'#6a4c10', border:'#c49020', hover:'#906a18' },  // deep amber
+        mt: { fill:'#401870', border:'#7a38cc', hover:'#5a28a0' },  // deep violet
+        pc: { fill:'#0e4c68', border:'#1898cc', hover:'#1870a0' },  // deep teal
+      },
+    };
+
+    let stateLayer = null;
+    let geoJsonData = null;
+
+    function stateStyle(feature, isDark) {
+      const abbr = STATE_NAME_TO_ABBR[feature.properties.name] || '';
+      const region = STATE_REGION[abbr] || 'ne';
+      const c = (isDark ? REGION_COLORS.dark : REGION_COLORS.light)[region];
+      return { fillColor: c.fill, fillOpacity: isDark ? 0.42 : 0.55, color: c.border, weight: 1, opacity: 0.9 };
+    }
+
+    async function renderStateLayer(isDark) {
+      if (stateLayer) { map.removeLayer(stateLayer); stateLayer = null; }
+      if (!geoJsonData) {
+        try {
+          const r = await fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json');
+          geoJsonData = await r.json();
+        } catch { return; }
+      }
+      stateLayer = L.geoJSON(geoJsonData, {
+        style: f => stateStyle(f, isDark),
+        onEachFeature(feature, layer) {
+          const name = feature.properties.name || '';
+          const abbr = STATE_NAME_TO_ABBR[name] || '';
+          const region = STATE_REGION[abbr] || 'ne';
+          const c = (isDark ? REGION_COLORS.dark : REGION_COLORS.light)[region];
+          layer.bindTooltip(
+            `<span style="font-weight:700;font-size:12px;">${name}</span>`,
+            { sticky: true, opacity: 1, className: 'state-tooltip' }
+          );
+          layer.on({
+            mouseover(e) {
+              e.target.setStyle({ fillColor: c.hover, fillOpacity: isDark ? 0.72 : 0.78, weight: 2 });
+            },
+            mouseout(e) { stateLayer.resetStyle(e.target); },
+            click(e)    { map.fitBounds(e.target.getBounds(), { padding: [30, 30], maxZoom: 7 }); },
+          });
+        },
+      }).addTo(map);
+      stateLayer.bringToBack();
+    }
+
+    const isDarkTheme = () => !document.documentElement.classList.contains('light');
+    renderStateLayer(isDarkTheme());
+
     window.addEventListener('ownit-theme-change', () => {
       map.removeLayer(tileLayer);
       tileLayer = L.tileLayer(currentTileUrl(), { maxZoom: 19, attribution: '' }).addTo(map);
+      renderStateLayer(isDarkTheme());
     });
 
     // Property hotspot cities with coordinates
@@ -504,9 +592,13 @@ function ContactPage() {
     </div></div>
 
     <div class="card"><div class="card__body">
-      <div class="card__title">Tip</div>
-      <div class="card__muted">For the project demo, explain this is a sample contact section (no real email sending yet).</div>
-      <div class="notice" style="margin-top:12px;">If you want, you can add a “mailto:” link later.</div>
+      <div class="card__title">Response Times</div>
+      <div class="card__muted" style="margin-bottom:14px;">Our team typically responds within one business day.</div>
+      <div style="display:grid;gap:10px;">
+        <div class="pill">🕘 Mon – Fri: 9 AM – 6 PM EST</div>
+        <div class="pill">📬 Email responses within 24 hours</div>
+        <div class="pill">📞 Phone available during office hours</div>
+      </div>
     </div></div>
   `;
   return el;
@@ -1868,15 +1960,15 @@ function ListingDetailPage(id) {
               <div class="card__muted" style="margin-bottom:12px;">
                 ${isRent ? 'Estimate your monthly costs' : 'Calculate your mortgage payment'}
               </div>
-              <a class="btn btn--primary" href="#/mortgage" style="width:100%;text-align:center;">
+              <a class="btn btn--primary" href="#/mortgage" style="display:block;width:100%;text-align:center;box-sizing:border-box;">
                 ${isRent ? '🔑 Rental Calculator' : '🏦 Mortgage Calculator'}
               </a>
               ${currentUser ? `
-              <button class="btn" style="width:100%;text-align:center;margin-top:8px;" onclick="location.hash='#/subscription'">
+              <button class="btn" style="display:block;width:100%;text-align:center;margin-top:8px;box-sizing:border-box;" onclick="location.hash='#/subscription'">
                 📞 Contact an Agent
               </button>` : `
-              <a class="btn" href="#/auth" style="width:100%;text-align:center;margin-top:8px;">
-                 Login to Contact Agent
+              <a class="btn" href="#/auth" style="display:block;width:100%;text-align:center;margin-top:8px;box-sizing:border-box;">
+                Login to Contact Agent
               </a>`}
             </div></div>
 

@@ -1,4 +1,5 @@
 import express from "express";
+import OpenAI from "openai";
 import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
 import { authenticateToken } from "./authRoutes.js";
 
@@ -14,94 +15,78 @@ async function ensureInitialized() {
   }
 }
 
-// AI Agent responses - simulates a real estate agent
-const agentResponses = {
-  greeting: [
-    "Hi there! I'm your AI Real Estate Agent. How can I help you today? 🏠",
-    "Hello! Welcome to Own It! I'm here to help you find your dream property. What are you looking for?",
-    "Hey! Great to meet you! Whether you're buying, selling, or just curious about the market, I'm here to help!"
-  ],
-  
-  buying: [
-    "That's exciting! Buying a home is a big decision. First, have you thought about your budget? Our mortgage calculator can help you figure out what you can afford.",
-    "Looking to buy? Great choice! Some key things to consider: location, budget, and must-have features. What's most important to you?",
-    "I'd love to help you find the perfect home! What area are you interested in, and how many bedrooms do you need?"
-  ],
-  
-  selling: [
-    "Thinking about selling? The current market is quite active. Would you like tips on how to prepare your home for sale?",
-    "Selling can be both exciting and stressful. I can help guide you through the process. Have you had your home appraised recently?",
-    "Ready to sell? First step is understanding your home's value. Location, condition, and recent comparable sales all factor in."
-  ],
-  
-  mortgage: [
-    "Great question about mortgages! The key factors are: your credit score, down payment, and debt-to-income ratio. Have you checked out our mortgage calculator?",
-    "For mortgages, I recommend getting pre-approved first. It shows sellers you're serious and helps you know your budget. Typically you'll need 3-20% down payment.",
-    "Mortgage rates vary based on loan type, credit score, and market conditions. FHA loans are great for first-time buyers with lower down payments!"
-  ],
-  
-  rental: [
-    "Looking to rent? Smart move for flexibility! What's your ideal price range and location?",
-    "Rentals are a great option! When searching, consider: proximity to work, neighborhood safety, and included amenities. What matters most to you?",
-    "I can help you find the perfect rental! Most landlords look for proof of income (usually 3x the rent) and good credit. Any specific areas you're interested in?"
-  ],
-  
-  investment: [
-    "Real estate investing can be very rewarding! Are you thinking about rental properties, fix-and-flip, or REITs?",
-    "Great interest in investing! Key metrics to know: cap rate, cash-on-cash return, and ROI. Would you like me to explain any of these?",
-    "Investment properties are a fantastic way to build wealth! Location is crucial - look for areas with job growth and population increases."
-  ],
-  
-  firstTime: [
-    "Congratulations on starting your home buying journey! First-time buyers often qualify for special programs and lower down payments. Have you looked into FHA loans?",
-    "Being a first-time buyer is exciting! My top tips: 1) Get pre-approved, 2) Know your must-haves vs nice-to-haves, 3) Budget for closing costs (2-5% of price).",
-    "Welcome to home buying! Don't worry, I'll guide you through every step. Start by checking your credit score and saving for a down payment. Even 3% can work!"
-  ],
-  
-  default: [
-    "That's a great question! Let me help you with that. Could you tell me more about what you're looking for?",
-    "I'm here to help! Whether it's buying, selling, renting, or understanding mortgages, just let me know what you need.",
-    "Thanks for reaching out! Real estate can be complex, but I'm here to make it simple. What specific questions do you have?",
-    "I'd be happy to help with that! For the best advice, could you share a bit more about your situation?",
-    "Good question! The real estate market has many nuances. Let me know your specific concerns and I'll do my best to help."
-  ]
-};
-
-// Determine which category the user's message falls into
-function categorizeMessage(message) {
-  const lower = message.toLowerCase();
-  
-  if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey') || lower.includes('start')) {
-    return 'greeting';
+// ── AI client — prefers Groq (free), falls back to OpenAI ────────────────────
+function getAIClient() {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey && groqKey !== "your_groq_api_key_here") {
+    return {
+      client: new OpenAI({ apiKey: groqKey, baseURL: "https://api.groq.com/openai/v1" }),
+      model: "llama-3.3-70b-versatile",
+    };
   }
-  if (lower.includes('buy') || lower.includes('purchase') || lower.includes('looking for home') || lower.includes('find a house')) {
-    return 'buying';
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey && openaiKey !== "your_openai_api_key_here") {
+    return {
+      client: new OpenAI({ apiKey: openaiKey }),
+      model: "gpt-4o-mini",
+    };
   }
-  if (lower.includes('sell') || lower.includes('list my') || lower.includes('selling')) {
-    return 'selling';
-  }
-  if (lower.includes('mortgage') || lower.includes('loan') || lower.includes('interest rate') || lower.includes('down payment') || lower.includes('financing')) {
-    return 'mortgage';
-  }
-  if (lower.includes('rent') || lower.includes('lease') || lower.includes('apartment')) {
-    return 'rental';
-  }
-  if (lower.includes('invest') || lower.includes('roi') || lower.includes('cap rate') || lower.includes('income property')) {
-    return 'investment';
-  }
-  if (lower.includes('first time') || lower.includes('first-time') || lower.includes('never bought') || lower.includes('new to')) {
-    return 'firstTime';
-  }
-  
-  return 'default';
+  return null;
 }
 
-// Get a random response from a category
-function getAgentResponse(category) {
-  const responses = agentResponses[category] || agentResponses.default;
-  return responses[Math.floor(Math.random() * responses.length)];
+// ── System prompt ─────────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are Alex, a knowledgeable and friendly AI real estate assistant for OwnIt Property Calculator — a platform that helps users buy, sell, and rent homes across the United States.
+
+Your role:
+- Answer any real estate question clearly and helpfully, just like a licensed agent would
+- Help users understand mortgages, down payments, interest rates, amortization, and monthly payment calculations
+- Give honest market insights for US cities and states
+- Explain rental vs buying decisions, investment properties, cap rates, and ROI
+- Guide first-time buyers through the home buying process step by step
+- Discuss neighborhoods, school districts, property taxes, HOA fees, and closing costs
+- Help users understand the listings on OwnIt (sales and rentals across all 50 states)
+- Answer general questions too — you're a full AI assistant, not just a real estate bot
+
+Tone: Conversational, confident, and helpful. Use plain language. Avoid jargon unless the user introduces it. Keep answers concise but complete — no unnecessary filler.
+
+When doing mortgage math, show your work clearly with numbers. For example: "On a $400k loan at 6.8% for 30 years, your monthly payment would be $2,608."
+
+You have access to the full conversation history, so always remember what the user said before.`;
+
+// ── Fallback responses when no API key is configured ─────────────────────────
+const FALLBACK_RESPONSES = [
+  "I'm your OwnIt AI assistant! To enable real AI responses, add a free Groq API key to the backend `.env` file (`GROQ_API_KEY=gsk_...`). Get one free at console.groq.com — no credit card needed!",
+  "Great question! For live AI-powered answers, grab a free key at console.groq.com and set `GROQ_API_KEY` in your backend `.env`. Once that's set, I can answer anything about mortgages, market trends, and more.",
+];
+
+// ── Call AI (Groq or OpenAI) with full conversation history ──────────────────
+async function getAIReply(userMessage, conversationHistory) {
+  const ai = getAIClient();
+
+  if (!ai) {
+    return FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
+  }
+
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...conversationHistory.map(m => ({
+      role: m.role === "agent" ? "assistant" : "user",
+      content: m.content,
+    })),
+    { role: "user", content: userMessage },
+  ];
+
+  const completion = await ai.client.chat.completions.create({
+    model: ai.model,
+    messages,
+    max_tokens: 600,
+    temperature: 0.7,
+  });
+
+  return completion.choices[0].message.content.trim();
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function parseDate(value) {
   if (!value) return null;
   const date = new Date(value);
@@ -109,104 +94,90 @@ function parseDate(value) {
 }
 
 async function hasPaidSubscription(userId) {
-  const subscription = await mongo.subscriptions()
-    .findOne(
-      { user_id: userId, status: "active" },
-      { sort: { updated_at: -1 } }
-    );
-
+  const subscription = await mongo.subscriptions().findOne(
+    { user_id: userId, status: "active" },
+    { sort: { updated_at: -1 } }
+  );
   if (subscription) {
     const dbEnd = parseDate(subscription.subscription_end);
-    if (!dbEnd || dbEnd > new Date()) {
-      return true;
-    }
+    if (!dbEnd || dbEnd > new Date()) return true;
   }
-
   return false;
 }
 
-// Check if user has free chat access (1 week from registration)
 async function checkChatAccess(userId) {
-  const session = await mongo.chat_sessions()
-    .findOne(
-      { user_id: userId },
-      { sort: { started_at: -1 } }
-    );
-  
-  if (!session) {
-    return { hasAccess: true, isNew: true };
-  }
-  
+  const session = await mongo.chat_sessions().findOne(
+    { user_id: userId },
+    { sort: { started_at: -1 } }
+  );
+
+  if (!session) return { hasAccess: true, isNew: true };
+
   const freeAccessEnds = new Date(session.free_access_ends);
   const now = new Date();
   const daysRemaining = Math.ceil((freeAccessEnds - now) / (1000 * 60 * 60 * 24));
-  
-  // Check if user has paid subscription
+
   if (await hasPaidSubscription(userId)) {
     return { hasAccess: true, isPaid: true, sessionId: session._id };
   }
-  
+
   return {
     hasAccess: daysRemaining > 0,
     daysRemaining: Math.max(0, daysRemaining),
     sessionId: session._id,
-    freeAccessEnds: session.free_access_ends
+    freeAccessEnds: session.free_access_ends,
   };
 }
 
-// Get or create chat session
+// ── GET /api/chat/session ─────────────────────────────────────────────────────
 router.get("/session", authenticateToken, async (req, res) => {
   try {
     await ensureInitialized();
-    
-    if (!req.user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
     const access = await checkChatAccess(req.user.id);
-    
+
     if (access.isNew) {
-      // Create new session with 1 week free access
       const freeAccessEnds = new Date();
       freeAccessEnds.setDate(freeAccessEnds.getDate() + 7);
-      
+
       const result = await mongo.chat_sessions().insertOne({
         user_id: req.user.id,
         started_at: new Date().toISOString(),
         free_access_ends: freeAccessEnds.toISOString(),
-        total_messages: 0
+        total_messages: 0,
       });
-      
+
       return res.json({
         sessionId: result.insertedId,
         hasAccess: true,
         daysRemaining: 7,
         freeAccessEnds: freeAccessEnds.toISOString(),
-        messages: []
+        messages: [],
       });
     }
-    
+
     if (!access.hasAccess) {
       return res.json({
         hasAccess: false,
-        message: "Your free week has ended. Subscribe to continue chatting with our AI agent!",
-        daysRemaining: 0
+        message: "Your free week has ended. Subscribe to continue chatting!",
+        daysRemaining: 0,
       });
     }
-    
-    // Get existing messages
+
     const messages = await mongo.chat_messages()
       .find({ session_id: access.sessionId })
       .sort({ created_at: 1 })
       .project({ role: 1, content: 1, created_at: 1 })
       .toArray();
-    
+
     res.json({
       sessionId: access.sessionId,
       hasAccess: true,
       daysRemaining: access.daysRemaining,
       isPaid: access.isPaid,
-      messages
+      messages,
     });
   } catch (error) {
     console.error("Chat session error:", error);
@@ -214,113 +185,121 @@ router.get("/session", authenticateToken, async (req, res) => {
   }
 });
 
-// Send a message and get AI response
+// ── POST /api/chat/message ────────────────────────────────────────────────────
 router.post("/message", authenticateToken, async (req, res) => {
   try {
     await ensureInitialized();
-    
-    if (!req.user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
     const { message } = req.body;
-    
     if (!message || message.trim().length === 0) {
       return res.status(400).json({ error: "Message cannot be empty" });
     }
-    
+
     const access = await checkChatAccess(req.user.id);
-    
+
     if (!access.hasAccess) {
       return res.status(403).json({
         error: "Your free week has ended. Subscribe to continue!",
-        upgradeRequired: true
+        upgradeRequired: true,
       });
     }
-    
+
     let sessionId = access.sessionId;
-    
-    // Create session if needed
+
+    // Create session if this is the first message ever
     if (access.isNew) {
       const freeAccessEnds = new Date();
       freeAccessEnds.setDate(freeAccessEnds.getDate() + 7);
-      
+
       const result = await mongo.chat_sessions().insertOne({
         user_id: req.user.id,
         started_at: new Date().toISOString(),
         free_access_ends: freeAccessEnds.toISOString(),
-        total_messages: 0
+        total_messages: 0,
       });
-      
       sessionId = result.insertedId;
     }
-    
-    // Save user message
+
+    // Fetch last 20 messages for context window (keeps tokens reasonable)
+    const history = await mongo.chat_messages()
+      .find({ session_id: sessionId })
+      .sort({ created_at: -1 })
+      .limit(20)
+      .project({ role: 1, content: 1 })
+      .toArray();
+    history.reverse(); // oldest first for the API
+
+    // Save user message first
     await mongo.chat_messages().insertOne({
       session_id: sessionId,
       role: "user",
       content: message.trim(),
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     });
-    
-    // Generate AI response
-    const category = categorizeMessage(message);
-    const agentReply = getAgentResponse(category);
-    
-    // Save agent response
+
+    // Call OpenAI (or fallback)
+    const agentReply = await getAIReply(message.trim(), history);
+
+    // Save AI reply
     await mongo.chat_messages().insertOne({
       session_id: sessionId,
       role: "agent",
       content: agentReply,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     });
-    
-    // Update message count
+
+    // Increment message count
     await mongo.chat_sessions().updateOne(
       { _id: sessionId },
       { $inc: { total_messages: 2 } }
     );
-    
+
     res.json({
       userMessage: message.trim(),
       agentReply,
-      sessionId
+      sessionId,
     });
   } catch (error) {
     console.error("Chat message error:", error);
+
+    // Surface API key errors cleanly
+    if (error?.status === 401) {
+      return res.status(500).json({ error: "Invalid OpenAI API key — check your OPENAI_API_KEY environment variable." });
+    }
+    if (error?.status === 429) {
+      return res.status(500).json({ error: "OpenAI rate limit reached. Please try again in a moment." });
+    }
+
     res.status(500).json({ error: "Failed to send message" });
   }
 });
 
-// Get chat history
+// ── GET /api/chat/history ─────────────────────────────────────────────────────
 router.get("/history", authenticateToken, async (req, res) => {
   try {
     await ensureInitialized();
-    
-    if (!req.user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
 
-    const session = await mongo.chat_sessions()
-      .findOne(
-        { user_id: req.user.id },
-        { sort: { started_at: -1 } }
-      );
-    
-    if (!session) {
-      return res.json({ messages: [] });
-    }
-    
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+    const session = await mongo.chat_sessions().findOne(
+      { user_id: req.user.id },
+      { sort: { started_at: -1 } }
+    );
+
+    if (!session) return res.json({ messages: [] });
+
     const messages = await mongo.chat_messages()
       .find({ session_id: session._id })
       .sort({ created_at: 1 })
       .project({ role: 1, content: 1, created_at: 1 })
       .toArray();
-    
-    res.json({ 
+
+    res.json({
       messages,
       totalMessages: session.total_messages,
-      startedAt: session.started_at
+      startedAt: session.started_at,
     });
   } catch (error) {
     console.error("Chat history error:", error);

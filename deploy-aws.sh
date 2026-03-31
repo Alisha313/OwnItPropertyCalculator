@@ -24,6 +24,8 @@ LAMBDA_MEMORY=256
 LAMBDA_TIMEOUT=30
 JWT_SECRET="ownit-jwt-secret-$(date +%s)"
 MONGODB_URI="mongodb+srv://paalisha_db_user:LMaGOVJw0vABFc24@ownit.2yfj4f1.mongodb.net/?appName=ownit"
+GROQ_API_KEY="${GROQ_API_KEY:-your_groq_api_key_here}"
+OPENAI_API_KEY="${OPENAI_API_KEY:-your_openai_api_key_here}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
@@ -152,7 +154,7 @@ if aws lambda get-function --function-name "$LAMBDA_NAME" --region "$REGION" >/d
     --handler "$LAMBDA_HANDLER" \
     --memory-size "$LAMBDA_MEMORY" \
     --timeout "$LAMBDA_TIMEOUT" \
-    --environment "Variables={JWT_SECRET=$JWT_SECRET,MONGODB_URI=$MONGODB_URI,NODE_ENV=production}" \
+    --environment "Variables={JWT_SECRET=$JWT_SECRET,MONGODB_URI=$MONGODB_URI,GROQ_API_KEY=$GROQ_API_KEY,OPENAI_API_KEY=$OPENAI_API_KEY,NODE_ENV=production}" \
     --region "$REGION" \
     --no-cli-pager > /dev/null
 
@@ -169,7 +171,7 @@ else
     --zip-file "fileb://$LAMBDA_ZIP" \
     --memory-size "$LAMBDA_MEMORY" \
     --timeout "$LAMBDA_TIMEOUT" \
-    --environment "Variables={JWT_SECRET=$JWT_SECRET,MONGODB_URI=$MONGODB_URI,NODE_ENV=production}" \
+    --environment "Variables={JWT_SECRET=$JWT_SECRET,MONGODB_URI=$MONGODB_URI,GROQ_API_KEY=$GROQ_API_KEY,OPENAI_API_KEY=$OPENAI_API_KEY,NODE_ENV=production}" \
     --region "$REGION" \
     --query "FunctionArn" --output text \
     --no-cli-pager)

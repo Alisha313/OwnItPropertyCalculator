@@ -8,15 +8,16 @@
     "reset-db": "node src/db.js --reset"
   },
   "dependencies": {
+    "@vendia/serverless-express": "^4.12.6",
     "bcryptjs": "^2.4.3",
-    "sql.js": "^1.10.3",
     "cookie-parser": "^1.4.6",
+    "cookie-session": "^2.1.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "cookie-session": "^2.1.0",
     "express-session": "^1.17.3",
-    "@vendia/serverless-express": "^4.12.6",
+    "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.3.0",
-    "jsonwebtoken": "^9.0.2"
+    "openai": "^6.33.0",
+    "sql.js": "^1.10.3"
   }
 }
