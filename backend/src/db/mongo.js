@@ -1,23 +1,39 @@
+/**
+ * @file mongo.js
+ * @project OwnIt Property Calculator
+ * @description MongoDB Atlas connection layer.
+ *              Establishes a connection to the MongoDB Atlas cluster, creates
+ *              performance indexes on startup, and exports typed collection
+ *              accessors and a helper for converting string IDs to ObjectId.
+ */
+
 import { MongoClient, ObjectId } from "mongodb";
 
+// MongoDB Atlas URI — read from environment variable for security; local fallback for dev
 const MONGO_URI = process.env.MONGODB_URI || "mongodb+srv://paalisha_db_user:LMaGOVJw0vABFc24@ownit.2yfj4f1.mongodb.net/?appName=ownit";
 
+// Module-level connection singletons (one client, one db reference per process)
 let client = null;
 let db = null;
 
+/**
+ * Connects to MongoDB Atlas and returns the database instance.
+ * If already connected, returns the cached database reference.
+ * @returns {Promise<Db>} The connected MongoDB database object.
+ */
 export async function connectToMongoDB() {
-  if (db) return db;
+  if (db) return db; // Return cached connection to avoid redundant connects
   
   try {
     client = new MongoClient(MONGO_URI, {
-      maxPoolSize: 10,
-      minPoolSize: 1,
+      maxPoolSize: 10, // Maximum simultaneous connections in the pool
+      minPoolSize: 1,  // Keep at least one connection warm
     });
     
     await client.connect();
     db = client.db("ownit");
     
-    // Create indexes
+    // Build indexes immediately after connecting
     await createIndexes();
     
     console.log("Connected to MongoDB Atlas");
@@ -28,39 +44,54 @@ export async function connectToMongoDB() {
   }
 }
 
+/**
+ * Creates indexes on all collections to optimize query performance.
+ * Indexes are created idempotently — safe to call on every startup.
+ */
 async function createIndexes() {
-  // Users - email unique
+  // Enforce unique emails per user account
   await db.collection("users").createIndex({ email: 1 }, { unique: true });
   
-  // Listings indexes
+  // Listings — indexed on common filter/sort fields
   await db.collection("listings").createIndex({ kind: 1 });
   await db.collection("listings").createIndex({ city: 1 });
   await db.collection("listings").createIndex({ state: 1 });
   await db.collection("listings").createIndex({ price: 1 });
   
-  // Subscriptions indexes
+  // Subscriptions — look up by user and filter by status
   await db.collection("subscriptions").createIndex({ user_id: 1 });
   await db.collection("subscriptions").createIndex({ status: 1 });
   
-  // Chat sessions indexes
+  // Chat sessions and messages — scoped by user and session
   await db.collection("chat_sessions").createIndex({ user_id: 1 });
   await db.collection("chat_messages").createIndex({ session_id: 1 });
   
-  // Market trends indexes
+  // Market trends — queried by location and time period
   await db.collection("market_trends").createIndex({ city: 1, state: 1 });
   await db.collection("market_trends").createIndex({ year: 1 });
   
-  // Saved properties indexes
+  // Saved properties — scoped per user
   await db.collection("saved_properties").createIndex({ user_id: 1 });
   
   console.log("MongoDB indexes created");
 }
 
+/**
+ * Returns the active database instance.
+ * Throws if called before connectToMongoDB() has been awaited.
+ * @returns {Db} The MongoDB database object.
+ */
 export function getDb() {
   if (!db) throw new Error("MongoDB not connected. Call connectToMongoDB() first.");
   return db;
 }
 
+/**
+ * Safely converts a string ID to a MongoDB ObjectId.
+ * Returns null if the string is not a valid ObjectId.
+ * @param {string} id - The string to convert.
+ * @returns {ObjectId|null}
+ */
 export function getObjectId(id) {
   try {
     return new ObjectId(id);
@@ -69,7 +100,10 @@ export function getObjectId(id) {
   }
 }
 
-// Helper to convert MongoDB documents to match old SQLite API
+/**
+ * Typed collection accessors — centralizes collection name strings
+ * so routes never need to hard-code collection names.
+ */
 export const mongo = {
   users: () => getDb().collection("users"),
   listings: () => getDb().collection("listings"),

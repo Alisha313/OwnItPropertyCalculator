@@ -1,14 +1,34 @@
+/**
+ * @file authRoutes.js
+ * @project OwnIt Property Calculator
+ * @description Authentication routes for user registration, login, logout,
+ *              and session retrieval. Uses bcrypt for password hashing and
+ *              JSON Web Tokens (JWT) for stateless session management.
+ *
+ * Endpoints:
+ *   POST /api/auth/register - Create a new account and start a 30-day trial
+ *   POST /api/auth/login    - Authenticate and receive a JWT
+ *   POST /api/auth/logout   - Client-side logout (token removal)
+ *   GET  /api/auth/me       - Return the currently authenticated user
+ */
+
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { mongo, connectToMongoDB, seedDatabase, getObjectId } from "../db/mongo.js";
 
 const router = express.Router();
+
+// JWT secret \u2014 must be overridden via JWT_SECRET env variable in production
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
-// Initialize MongoDB on first request
+// Lazy initialization flag: connect to MongoDB on the first request
 let initialized = false;
 
+/**
+ * Ensures MongoDB is connected and seed data is loaded before handling a request.
+ * Runs only once per server process lifetime.
+ */
 async function ensureInitialized() {
   if (!initialized) {
     await connectToMongoDB();
@@ -17,6 +37,12 @@ async function ensureInitialized() {
   }
 }
 
+/**
+ * Generates a signed JWT for the given user.
+ * The token expires after 30 days and encodes the user's id, email, and name.
+ * @param {{ _id: ObjectId, email: string, name: string }} user
+ * @returns {string} Signed JWT string.
+ */
 function generateToken(user) {
   return jwt.sign(
     { id: user._id.toString(), email: user.email, name: user.name },
@@ -25,6 +51,12 @@ function generateToken(user) {
   );
 }
 
+/**
+ * Fetches the most recent subscription record for a user and returns a
+ * normalized snapshot suitable for embedding in auth responses.
+ * @param {ObjectId} userId - The MongoDB user ID.
+ * @returns {Promise<object|null>} Subscription snapshot or null.
+ */
 async function loadSubscriptionSnapshot(userId) {
   const subscription = await mongo.subscriptions()
     .findOne(
@@ -47,24 +79,33 @@ async function loadSubscriptionSnapshot(userId) {
   };
 }
 
-// Middleware to verify JWT
+/**
+ * Middleware: Verifies the Bearer JWT in the Authorization header.
+ * Attaches the decoded user payload to req.user on success.
+ * Sets req.user = null for missing or invalid tokens (non-blocking).
+ *
+ * @param {import('express').Request}  req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers["authorization"];
+  // Expect format: "Bearer <token>"
   const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    req.user = null;
+    req.user = null; // Allow unauthenticated access to optional-auth routes
     return next();
   }
 
   jwt.verify(token, JWT_SECRET, async (err, user) => {
     if (err) {
-      req.user = null;
+      req.user = null; // Token invalid or expired
       return next();
     }
     req.user = user;
     
-    // Load subscription data
+    // Attach the user's subscription data so route handlers don't need to re-fetch
     try {
       await ensureInitialized();
       req.subscription = await loadSubscriptionSnapshot(user.id);
@@ -76,6 +117,7 @@ export function authenticateToken(req, res, next) {
   });
 }
 
+// ── POST /api/auth/register ───────────────────────────────────────────────────
 router.post("/register", async (req, res) => {
   try {
     await ensureInitialized();
@@ -158,6 +200,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
+// ── POST /api/auth/login ─────────────────────────────────────────────────────
 router.post("/login", async (req, res) => {
   try {
     await ensureInitialized();
@@ -169,6 +212,8 @@ router.post("/login", async (req, res) => {
 
     const user = await mongo.users().findOne({ email });
 
+    // Use the same error message for missing user and wrong password
+    // to avoid leaking whether an email is registered (security best practice)
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
     const ok = bcrypt.compareSync(password, user.password_hash);
@@ -189,11 +234,16 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// ── POST /api/auth/logout ────────────────────────────────────────────────────
+// JWT-based auth is stateless — the server simply confirms the request.
+// The client is responsible for discarding the token from localStorage.
 router.post("/logout", (req, res) => {
-  // With JWT, logout is handled client-side by removing the token
   res.json({ ok: true });
 });
 
+// ── GET /api/auth/me ─────────────────────────────────────────────────────────
+// Returns the currently authenticated user and their subscription snapshot.
+// Uses authenticateToken middleware; returns { user: null } for guests.
 router.get("/me", authenticateToken, async (req, res) => {
   if (!req.user) {
     return res.json({ user: null });

@@ -1,3 +1,16 @@
+/**
+ * @file aiRoutes.js
+ * @project OwnIt Property Calculator
+ * @description Rules-based AI valuation and market trend endpoints.
+ *              Property value estimates are calculated using price-per-sqft
+ *              data from market trends or comparable listings, then adjusted
+ *              for bedrooms, bathrooms, and property age.
+ *
+ * Endpoints:
+ *   GET /api/ai/valuation?listingId=   - Estimated value for a listing
+ *   GET /api/ai/market-trends?city=&state= - Historical market trend data
+ */
+
 import express from "express";
 import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
 

@@ -915,12 +915,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 .calc-type-selector {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   .calc-type-selector {
     grid-template-columns: 1fr;
   }
@@ -2756,6 +2756,134 @@ html.light .state-tooltip.leaflet-tooltip {
     border-top: 1px solid var(--line);
     max-height: none;
   }
+}
+
+/* ==========================================
+   RENT VS BUY CALCULATOR
+   ========================================== */
+.rvb-verdict-card {
+  background: linear-gradient(135deg, rgba(124,92,255,.12), rgba(41,215,255,.08));
+  border: 1px solid rgba(124,92,255,.3);
+  border-radius: 16px;
+  padding: 22px 20px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.rvb-verdict {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.rvb-savings {
+  font-size: 13px;
+  color: var(--muted);
+}
+.rvb-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rvb-comparison__box {
+  border-radius: 14px;
+  padding: 16px 14px;
+  text-align: center;
+}
+.rvb-comparison__box--buy {
+  background: rgba(124,92,255,.1);
+  border: 1px solid rgba(124,92,255,.25);
+}
+.rvb-comparison__box--rent {
+  background: rgba(41,215,255,.08);
+  border: 1px solid rgba(41,215,255,.2);
+}
+.rvb-comparison__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 8px;
+}
+.rvb-comparison__value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.rvb-comparison__sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+.rvb-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.rvb-stat {
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 12px;
+}
+.rvb-stat__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 5px;
+}
+.rvb-stat__value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.rvb-stat__value--sm {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.rvb-stat__sub {
+  font-size: 10px;
+  color: var(--muted);
+}
+.rvb-section-divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 16px 0;
+}
+.rvb-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rvb-disclaimer {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  line-height: 1.5;
+}
+html.light .rvb-verdict-card {
+  background: linear-gradient(135deg, rgba(124,92,255,.08), rgba(41,215,255,.05));
+}
+html.light .rvb-comparison__box--buy {
+  background: rgba(124,92,255,.07);
+}
+html.light .rvb-comparison__box--rent {
+  background: rgba(41,215,255,.06);
+}
+html.light .rvb-stat {
+  background: rgba(0,0,0,.02);
 }
 
 /* ==========================================

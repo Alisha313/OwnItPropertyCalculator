@@ -1,6 +1,21 @@
-/** -------------------------
- *  Auth (backend session)
- *  ------------------------- */
+/**
+ * @file app.js  (assets/app.js)
+ * @project OwnIt Property Calculator
+ * @description Main frontend entry point for the OwnIt single-page application.
+ *              Manages authentication state, client-side routing via URL hash,
+ *              theme toggling (light/dark), and page rendering.
+ *
+ * Architecture:
+ *   - Hash-based router maps URL fragments to page builder functions
+ *   - JWT stored in localStorage and attached to every API request
+ *   - All pages are rendered by inserting DOM nodes into #app
+ */
+
+/** ─────────────────────────────────────────────────────────────────
+ *  Authentication
+ *  Stores the JWT in localStorage and keeps a currentUser object
+ *  in memory so any page can call getUser() synchronously.
+ * ───────────────────────────────────────────────────────────────── */
 
 let currentUser = null;
 let authToken = localStorage.getItem("token");
@@ -89,9 +104,11 @@ function syncAuthUI() {
 }
 
 
-/** -------------------------
+/** ─────────────────────────────────────────────────────────────────
  *  Router
- *  ------------------------- */
+ *  Maps URL hash fragments to page builder functions.
+ *  Dynamic segments like /listing/:id are handled separately.
+ * ───────────────────────────────────────────────────────────────── */
 const routes = {
   "/": HomePage,
   "/sales": () => ListingsPage("sale"),
@@ -107,10 +124,12 @@ document.getElementById("logoutBtn").addEventListener("click", logout);
 syncAuthUI();
 refreshMe(); // loads session user if already logged in
 
-/** -------------------------
+/** ─────────────────────────────────────────────────────────────────
  *  Theme Toggle (light / dark)
- *  ------------------------- */
-const TILE_DARK = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+ *  Persists the user's preferred theme in localStorage.
+ *  Also updates Leaflet map tiles to match the active theme.
+ * ───────────────────────────────────────────────────────────────── */
+const TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 function currentTileUrl() {
   return document.documentElement.classList.contains('light') ? TILE_LIGHT : TILE_DARK;
@@ -375,12 +394,17 @@ function HomePage() {
 
   loadFeatured(''); // initial load — all cities
 
-  // Easy Filters "Go" button
+  // Easy Filters "Go" button — pass selections via sessionStorage
   el.querySelector('#efGoBtn').addEventListener('click', () => {
-    const kind = el.querySelector('#efKind').value;
-    const route = kind === 'rental' ? '#/rentals' : '#/sales';
-    // We'll set hash, then after page renders set filter values
-    location.hash = route;
+    const kind     = el.querySelector('#efKind').value;
+    const maxPrice = el.querySelector('#efPrice').value;
+    const minBeds  = el.querySelector('#efBeds').value;
+    if (maxPrice || minBeds) {
+      sessionStorage.setItem('easyFilter', JSON.stringify({ maxPrice, minBeds }));
+    } else {
+      sessionStorage.removeItem('easyFilter');
+    }
+    location.hash = kind === 'rental' ? '#/rentals' : '#/sales';
   });
 
   // Update listing count on map stat
@@ -627,7 +651,7 @@ function AuthPage() {
           <input name="password" type="password" minlength="4" required />
         </div>
         <button class="btn btn--primary" type="submit">Create Account</button>
-        <div class="notice">Demo auth using backend + SQLite + session cookie.</div>
+        <div class="notice">Secure authentication using MongoDB + JWT.</div>
       </form>
     </div></div>
 
@@ -820,6 +844,17 @@ function ListingsPage(kind) {
 
   const grid = el.querySelector("#listingsGrid");
   const count = el.querySelector("#resultsCount");
+
+  // Apply Easy Filters from home page if present
+  const easyFilter = sessionStorage.getItem('easyFilter');
+  if (easyFilter) {
+    try {
+      const { maxPrice, minBeds } = JSON.parse(easyFilter);
+      if (maxPrice) f.max.value = maxPrice;
+      if (minBeds)  f.beds.value = minBeds;
+    } catch {}
+    sessionStorage.removeItem('easyFilter');
+  }
 
   // Draw listings
   const draw = async () => {
@@ -1070,6 +1105,11 @@ function MortgagePage() {
         <span class="calc-type-btn__icon"></span>
         <span class="calc-type-btn__label">Rental Calculator</span>
         <span class="calc-type-btn__desc">Estimate rental costs & affordability</span>
+      </button>
+      <button id="rvbCalcBtn" class="calc-type-btn" data-type="rvb">
+        <span class="calc-type-btn__icon">⚖️</span>
+        <span class="calc-type-btn__label">Rent vs Buy</span>
+        <span class="calc-type-btn__desc">Compare total costs over time</span>
       </button>
     </div>
 
@@ -1484,6 +1524,141 @@ function MortgagePage() {
         </div>
       </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         RENT vs BUY CALCULATOR SECTION
+    ════════════════════════════════════════════════════════════ -->
+    <div id="rvbCalcSection" class="calc-section" style="display:none;">
+      <div class="mortgage-layout">
+
+        <!-- ── Left: Inputs ── -->
+        <div class="mortgage-form">
+          <div class="mortgage-form__title">
+            <span class="mortgage-form__icon"></span>
+            Compare Scenarios
+          </div>
+
+          <div class="mortgage-form__grid">
+            <div class="mortgage-input">
+              <label>Home Price</label>
+              <input id="rvbHomePrice" type="number" value="400000" placeholder="$400,000" />
+            </div>
+            <div class="mortgage-input">
+              <label>Down Payment</label>
+              <input id="rvbDownPayment" type="number" value="80000" placeholder="$80,000" />
+            </div>
+          </div>
+
+          <div class="mortgage-input state-select" style="margin-top:12px;">
+            <label>State (Auto-fills Rate)</label>
+            <select id="rvbStateSelect">
+              <option value="">-- Select a State --</option>
+              ${stateOptions}
+            </select>
+          </div>
+
+          <div class="mortgage-form__row" style="margin-top:12px;">
+            <div class="mortgage-input">
+              <label>Mortgage Rate (%)</label>
+              <input id="rvbRate" type="number" value="6.75" step="0.01" placeholder="6.75" />
+            </div>
+            <div class="mortgage-input">
+              <label>Loan Term</label>
+              <select id="rvbTerm">
+                <option value="30">30 years</option>
+                <option value="20">20 years</option>
+                <option value="15">15 years</option>
+              </select>
+            </div>
+          </div>
+
+          <hr class="rvb-section-divider" />
+          <div class="rvb-section-title">Rental Scenario</div>
+          <div class="mortgage-form__row">
+            <div class="mortgage-input">
+              <label>Monthly Rent ($)</label>
+              <input id="rvbRent" type="number" value="2000" placeholder="$2,000" />
+            </div>
+            <div class="mortgage-input">
+              <label>Annual Rent Increase (%)</label>
+              <input id="rvbRentIncrease" type="number" value="3" step="0.5" placeholder="3" />
+            </div>
+          </div>
+
+          <hr class="rvb-section-divider" />
+          <div class="rvb-section-title">Market Assumptions</div>
+          <div class="mortgage-form__row">
+            <div class="mortgage-input">
+              <label>Annual Appreciation (%)</label>
+              <input id="rvbAppreciation" type="number" value="3.5" step="0.5" placeholder="3.5" />
+            </div>
+            <div class="mortgage-input">
+              <label>Compare Over</label>
+              <select id="rvbYears">
+                <option value="5">5 years</option>
+                <option value="10" selected>10 years</option>
+                <option value="20">20 years</option>
+                <option value="30">30 years</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="rvbCalcRunBtn" class="mortgage-btn" style="margin-top:18px;width:100%;">
+            Calculate →
+          </button>
+        </div>
+
+        <!-- ── Right: Results ── -->
+        <div class="mortgage-results">
+          <div class="rvb-verdict-card">
+            <div id="rvbVerdict" class="rvb-verdict">Enter values and click Calculate</div>
+            <div id="rvbSavings" class="rvb-savings">We'll show you which option costs less over your chosen time frame</div>
+          </div>
+
+          <div class="rvb-comparison">
+            <div class="rvb-comparison__box rvb-comparison__box--buy">
+              <div class="rvb-comparison__label">Net Cost of Buying</div>
+              <div id="rvbBuyTotal" class="rvb-comparison__value">—</div>
+              <div class="rvb-comparison__sub">Payments minus appreciation gain</div>
+            </div>
+            <div class="rvb-comparison__box rvb-comparison__box--rent">
+              <div class="rvb-comparison__label">Total Cost of Renting</div>
+              <div id="rvbRentTotal" class="rvb-comparison__value">—</div>
+              <div class="rvb-comparison__sub">All rent payments combined</div>
+            </div>
+          </div>
+
+          <div class="rvb-stats">
+            <div class="rvb-stat">
+              <div class="rvb-stat__label">Monthly Buying Cost</div>
+              <div id="rvbMonthlyBuy" class="rvb-stat__value">—</div>
+              <div class="rvb-stat__sub">Mortgage + tax + insurance</div>
+            </div>
+            <div class="rvb-stat">
+              <div class="rvb-stat__label">Home Value at End</div>
+              <div id="rvbHomeValue" class="rvb-stat__value">—</div>
+              <div class="rvb-stat__sub">After appreciation</div>
+            </div>
+            <div class="rvb-stat">
+              <div class="rvb-stat__label">Total Equity Built</div>
+              <div id="rvbEquity" class="rvb-stat__value">—</div>
+              <div class="rvb-stat__sub">Home value – mortgage balance</div>
+            </div>
+            <div class="rvb-stat">
+              <div class="rvb-stat__label">Breakeven Point</div>
+              <div id="rvbBreakEven" class="rvb-stat__value rvb-stat__value--sm">—</div>
+              <div class="rvb-stat__sub">When buying becomes cheaper</div>
+            </div>
+          </div>
+
+          <div class="rvb-disclaimer">
+            * Net buying cost = down payment + all mortgage/tax/insurance payments − home appreciation gain.
+            Does not include closing costs, maintenance, or investment returns on the down payment.
+          </div>
+        </div>
+
+      </div>
+    </div>
   `;
 
   const amRows = el.querySelector("#amRows");
@@ -1862,31 +2037,134 @@ function MortgagePage() {
     input.addEventListener('change', calcRental);
   });
 
+  // -------------------- Rent vs Buy Logic --------------------
+  const calcRvB = () => {
+    const homePrice     = parseFloat(el.querySelector('#rvbHomePrice').value)     || 400000;
+    const downPayment   = parseFloat(el.querySelector('#rvbDownPayment').value)   || 80000;
+    const annualRate    = parseFloat(el.querySelector('#rvbRate').value)          || 6.75;
+    const loanTerm      = parseInt(el.querySelector('#rvbTerm').value)            || 30;
+    const monthlyRent   = parseFloat(el.querySelector('#rvbRent').value)          || 2000;
+    const rentIncrease  = parseFloat(el.querySelector('#rvbRentIncrease').value)  || 3;
+    const appreciation  = parseFloat(el.querySelector('#rvbAppreciation').value)  || 3.5;
+    const years         = parseInt(el.querySelector('#rvbYears').value)           || 10;
+
+    const loanAmount = Math.max(homePrice - downPayment, 0);
+    const r = (annualRate / 100) / 12;
+    const n = loanTerm * 12;
+
+    const monthlyMortgage = (loanAmount > 0 && r > 0)
+      ? loanAmount * (r * Math.pow(1+r,n)) / (Math.pow(1+r,n) - 1)
+      : loanAmount / n;
+
+    const monthlyTax       = (homePrice * 0.012) / 12;
+    const monthlyInsurance = 150;
+    const monthlyBuyingCost = monthlyMortgage + monthlyTax + monthlyInsurance;
+
+    // Total paid over N years
+    const paymentMonths = Math.min(years * 12, n);
+    const totalPaid = downPayment + (monthlyBuyingCost * paymentMonths);
+
+    // Remaining mortgage balance at year N
+    let remainingBalance = 0;
+    if (years < loanTerm && r > 0) {
+      const N_months = years * 12;
+      remainingBalance = loanAmount * (Math.pow(1+r,n) - Math.pow(1+r,N_months)) / (Math.pow(1+r,n) - 1);
+    }
+
+    const homeValueAtN    = homePrice * Math.pow(1 + appreciation/100, years);
+    const equity          = homeValueAtN - remainingBalance;
+    const appreciationGain = homeValueAtN - homePrice;
+    const netBuyingCost   = totalPaid - appreciationGain;
+
+    // Total renting cost over N years (rent rises each year)
+    let totalRentingCost = 0;
+    let currentRent = monthlyRent;
+    for (let y = 0; y < years; y++) {
+      totalRentingCost += currentRent * 12;
+      currentRent *= (1 + rentIncrease / 100);
+    }
+
+    // Breakeven: year when cumulative net buying < cumulative renting
+    let cumulativeBuy = downPayment;
+    let cumulativeRent = 0;
+    let rentBE = monthlyRent;
+    let breakEvenYear = null;
+    for (let y = 1; y <= 30; y++) {
+      cumulativeBuy  += monthlyBuyingCost * 12;
+      cumulativeRent += rentBE * 12;
+      rentBE         *= (1 + rentIncrease / 100);
+      const netBuyY   = cumulativeBuy - (homePrice * Math.pow(1 + appreciation/100, y) - homePrice);
+      if (netBuyY < cumulativeRent && breakEvenYear === null) breakEvenYear = y;
+    }
+
+    const fmt      = v => '$' + Math.round(v).toLocaleString();
+    const buyWins  = netBuyingCost < totalRentingCost;
+    const savings  = Math.abs(netBuyingCost - totalRentingCost);
+
+    el.querySelector('#rvbBuyTotal').textContent   = fmt(netBuyingCost);
+    el.querySelector('#rvbRentTotal').textContent  = fmt(totalRentingCost);
+    el.querySelector('#rvbMonthlyBuy').textContent = fmt(monthlyBuyingCost) + '/mo';
+    el.querySelector('#rvbHomeValue').textContent  = fmt(homeValueAtN);
+    el.querySelector('#rvbEquity').textContent     = fmt(equity);
+
+    const verdictEl   = el.querySelector('#rvbVerdict');
+    const savingsEl   = el.querySelector('#rvbSavings');
+    const breakEvenEl = el.querySelector('#rvbBreakEven');
+
+    verdictEl.textContent = buyWins
+      ? `Buying saves you ${fmt(savings)} over ${years} years`
+      : `Renting saves you ${fmt(savings)} over ${years} years`;
+    verdictEl.style.color = buyWins ? '#6bcb77' : '#29d7ff';
+
+    savingsEl.textContent = buyWins
+      ? `After accounting for home appreciation, buying is the better financial choice here.`
+      : `Given these numbers, renting and investing the difference comes out ahead.`;
+
+    breakEvenEl.textContent = breakEvenYear
+      ? `Buying beats renting at year ${breakEvenYear}`
+      : 'Buying does not break even within 30 years at these rates';
+    breakEvenEl.style.color = breakEvenYear && breakEvenYear <= years ? '#6bcb77' : 'var(--muted)';
+  };
+
+  // Wire up RvB state selector → auto-fill rate
+  el.querySelector('#rvbStateSelect').addEventListener('change', function () {
+    if (this.value && stateRates[this.value]) {
+      el.querySelector('#rvbRate').value = stateRates[this.value].rate;
+    }
+  });
+  el.querySelector('#rvbCalcRunBtn').addEventListener('click', calcRvB);
+
   // -------------------- Calculator Type Switching --------------------
-  const mortgageCalcBtn = el.querySelector("#mortgageCalcBtn");
-  const rentalCalcBtn = el.querySelector("#rentalCalcBtn");
+  const mortgageCalcBtn  = el.querySelector("#mortgageCalcBtn");
+  const rentalCalcBtn    = el.querySelector("#rentalCalcBtn");
+  const rvbCalcBtn       = el.querySelector("#rvbCalcBtn");
   const mortgageCalcSection = el.querySelector("#mortgageCalcSection");
-  const rentalCalcSection = el.querySelector("#rentalCalcSection");
+  const rentalCalcSection   = el.querySelector("#rentalCalcSection");
+  const rvbCalcSection      = el.querySelector("#rvbCalcSection");
 
   function switchCalculator(type) {
     activeCalc = type;
+    [mortgageCalcBtn, rentalCalcBtn, rvbCalcBtn].forEach(b => b && b.classList.remove("calc-type-btn--active"));
+    mortgageCalcSection.style.display = "none";
+    rentalCalcSection.style.display   = "none";
+    rvbCalcSection.style.display      = "none";
 
     if (type === "mortgage") {
       mortgageCalcBtn.classList.add("calc-type-btn--active");
-      rentalCalcBtn.classList.remove("calc-type-btn--active");
       mortgageCalcSection.style.display = "block";
-      rentalCalcSection.style.display = "none";
-    } else {
+    } else if (type === "rental") {
       rentalCalcBtn.classList.add("calc-type-btn--active");
-      mortgageCalcBtn.classList.remove("calc-type-btn--active");
       rentalCalcSection.style.display = "block";
-      mortgageCalcSection.style.display = "none";
-      calcRental(); // Calculate on switch
+      calcRental();
+    } else {
+      rvbCalcBtn.classList.add("calc-type-btn--active");
+      rvbCalcSection.style.display = "block";
     }
   }
 
   mortgageCalcBtn.addEventListener("click", () => switchCalculator("mortgage"));
-  rentalCalcBtn.addEventListener("click", () => switchCalculator("rental"));
+  rentalCalcBtn.addEventListener("click",   () => switchCalculator("rental"));
+  rvbCalcBtn.addEventListener("click",      () => switchCalculator("rvb"));
 
   calc();
   return el;
@@ -2652,7 +2930,7 @@ async function loadChatSession() {
           <div class="chat-expired__text">
             Your 1-week free access has ended. Subscribe to continue chatting with our AI agent!
           </div>
-          <button class="btn btn--primary" onclick="alert('Subscription coming soon!')">Subscribe Now</button>
+          <button class="btn btn--primary" onclick="location.hash='#/subscription';toggleChat(false)">Subscribe Now</button>
         </div>
       `;
       inputArea.style.display = 'none';
@@ -2963,7 +3241,7 @@ async function fetchAiMarketTrends(city, state) {
 
     // Create chart container
     const chartId = 'aiChart_' + Date.now();
-    const growthClass = data.summary.totalGrowthPercent >= 0 ? 'up' : 'down';
+    const growthClass = data.summary.growthPercent >= 0 ? 'up' : 'down';
 
     messagesEl.innerHTML += `
       <div class="chat-message chat-message--agent">
@@ -2972,15 +3250,15 @@ async function fetchAiMarketTrends(city, state) {
           <canvas id="${chartId}" style="max-height: 180px;"></canvas>
           <div class="ai-chart-summary">
             <div class="ai-chart-stat ai-chart-stat--${growthClass}">
-              <div class="ai-chart-stat__value">${data.summary.totalGrowthPercent >= 0 ? '+' : ''}${data.summary.totalGrowthPercent}%</div>
+              <div class="ai-chart-stat__value">${data.summary.growthPercent >= 0 ? '+' : ''}${data.summary.growthPercent}%</div>
               <div class="ai-chart-stat__label">Total Growth</div>
             </div>
             <div class="ai-chart-stat">
-              <div class="ai-chart-stat__value">$${data.summary.latestPrice}</div>
+              <div class="ai-chart-stat__value">$${data.summary.endPrice}</div>
               <div class="ai-chart-stat__label">Current $/sqft</div>
             </div>
             <div class="ai-chart-stat">
-              <div class="ai-chart-stat__value">$${data.summary.earliestPrice}</div>
+              <div class="ai-chart-stat__value">$${data.summary.startPrice}</div>
               <div class="ai-chart-stat__label">Start $/sqft</div>
             </div>
             <div class="ai-chart-stat">
@@ -3083,7 +3361,8 @@ async function showMapInChat(kind) {
 
   try {
     const url = kind ? `/api/listings/map?kind=${kind}` : '/api/listings/map';
-    const listings = await apiFetch(url);
+    const resp = await apiFetch(url);
+    const listings = resp.listings || [];
     loadingEl.remove();
 
     if (listings.length === 0) {
@@ -3098,13 +3377,14 @@ async function showMapInChat(kind) {
     // Create map container
     const mapId = 'aiMap_' + Date.now();
     const kindLabel = kind === 'sale' ? 'For Sale' : kind === 'rental' ? 'For Rent' : 'All';
+    const fullMapLink = kind === 'rental' ? '#/rentals' : '#/sales';
 
     messagesEl.innerHTML += `
       <div class="chat-message chat-message--agent" style="padding: 0;">
         <div class="ai-map-container">
           <div class="ai-map-header">
             <span class="ai-map-header__title">🗺️ ${listings.length} ${kindLabel} Listings</span>
-            <a href="#/map?kind=${kind}" style="font-size: 12px; color: var(--accent);">Open Full Map →</a>
+            <a href="${fullMapLink}" style="font-size: 12px; color: var(--accent);">Open Full Map →</a>
           </div>
           <div id="${mapId}" class="ai-map" style="height: 280px;"></div>
         </div>
@@ -3149,7 +3429,7 @@ async function showMapInChat(kind) {
               <div class="map-popup__price">${price}</div>
               <div class="map-popup__location">${listing.city}, ${listing.state}</div>
               <div class="map-popup__details">
-                ${listing.bedrooms} bed • ${listing.bathrooms} bath • ${listing.square_feet.toLocaleString()} sqft
+                ${listing.bedrooms} bed • ${listing.bathrooms} bath • ${(listing.sqft || 0).toLocaleString()} sqft
               </div>
               <a href="#/listing/${listing.id}" class="map-popup__link" onclick="toggleChat(false)">View Details</a>
             </div>

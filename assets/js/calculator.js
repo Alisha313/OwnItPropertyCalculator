@@ -1,17 +1,43 @@
+/**
+ * @file calculator.js
+ * @project OwnIt Property Calculator
+ * @description Core property investment calculation engine.
+ *              Reads user inputs, validates them, then computes a year-by-year
+ *              cash flow projection including mortgage amortization, income
+ *              growth, expense escalation, and final sale proceeds.
+ *
+ *              Key metrics produced:
+ *                - IRR  (Internal Rate of Return)
+ *                - Cash-on-Cash Return
+ *                - Cap Rate
+ *                - NOI  (Net Operating Income)
+ *                - Total Profit
+ */
+
+/**
+ * Main calculation function triggered on form submission.
+ * Reads all input fields, validates required fields, and generates
+ * a year-by-year investment projection written to the output elements.
+ */
 function calculate(){
+	// \u2500\u2500 Input Collection \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+	// Purchase details
 	const price = input.get('purchase_price').gt(0).val();
 	const closingCost = +input.get('closing_cost').val();
-	//loan
+
+	// Loan / financing inputs
 	const useLoan = input.get('use-loan').checked().raw();
 	const downPayment = +input.get('down_payment').val();
 	const interest = +input.get('interest_rate').optional().gt(0).val();
 	const years = +input.get('loan_term').optional().gt(0).val();
 
-	//repair
+	// Renovation / rehab inputs
 	const needRepair = input.get('need-repair').checked().raw();
 	const repairCost = +input.get('repair_cost').optional().gt(0).val();
 	const afterRepair = input.get('after_repair').optional().gt('purchase_price').val();
-	//income
+
+	// Rental income inputs
 	const rentalPrice = input.get('rental_price').gt(0).val();
 	const priceIncrease = +input.get('annual_increase').optional().gt(0).val();
 	const otherIncome = +input.get('other_income').optional().gt(0).val();
@@ -19,7 +45,7 @@ function calculate(){
 	const vacancyRate = +input.get('vacancy_rate').optional().gt(0).val();
 	const managementFee = +input.get('management_fee').optional().gt(0).val();
 
-	//taxes
+	// Annual expense inputs with individual growth rates
 	const propertyTax = +input.get('property_tax').optional().gt(0).val();
 	const taxIncrease = +input.get('annual_increase_3').optional().gt(0).val();
 	const insurance = +input.get('total_insurance').optional().gt(0).val();
@@ -30,13 +56,17 @@ function calculate(){
 	const maintenanceIncrease = +input.get('annual_increase_6').optional().gt(0).val();
 	const otherTaxes = +input.get('other_taxes').optional().gt(0).val();
 	const otherTaxesIncrease = +input.get('annual_increase_7').optional().gt(0).val();
-	//sell
+
+	// Exit / sale inputs
 	const knowSellingPrice = input.get('selling-price').checked().raw();
 	const sellPriceIncrease = +input.get('value_appreciation').optional().gt(0).val();
 	const sellingPrice = +input.get('selling_price').optional().gt(0).val();
 	const holdingLength = input.get('holding_length').gt(0).val();
 	const costSell = +input.get('cost_sell').optional().gt(0).val();
 
+	// \u2500\u2500 Validation \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+	// Loan fields are only required when financing is enabled
 	if(useLoan) {
 		if(!interest) {
 			input.error('interest_rate', 'Enter the interest rate')
@@ -45,6 +75,7 @@ function calculate(){
 			input.error('loan_term', 'Enter the loan term')
 		}
 	}
+	// Repair fields are only required when renovation is enabled
 	if(needRepair) {
 		if(!repairCost) {
 			input.error('repair_cost', 'Enter the repair cost')
@@ -53,12 +84,17 @@ function calculate(){
 			input.error('after_repair', 'Enter the value after repair')
 		}
 	}
-	if(!input.valid()) return false;
+	if(!input.valid()) return false; // Abort if any validation errors exist
 
+	// \u2500\u2500 Year-1 Calculations \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
+	// Loan amount after down payment deduction
 	const loanValue = price - price * downPayment / 100;
+	// Monthly mortgage payment using standard amortization formula
 	const mortgagePayment = !useLoan ? 0 : calculatePayment(loanValue, years * 12, interest);
 	let yearMortgagePayment = mortgagePayment * 12;
+
+	// Net monthly income after vacancy and management fee deductions
 	const monthlyIncome = rentalPrice - (rentalPrice) * (vacancyRate + managementFee) / 100;
 	const monthlyOtherIncome = otherIncome - otherIncome * (vacancyRate + managementFee) / 100;
 	let yearIncome = monthlyIncome * 12;
@@ -92,12 +128,21 @@ function calculate(){
 	if(knowSellingPrice) {
 		propertyIncrement = calculateInterestRate(propertySellPrice, propertyCurrentValue, 1, holdingLength);
 	}
+	// Year-1 cash-on-cash return: annual cash flow divided by total cash invested
 	let cashReturn = cashFlow / Math.abs(beginCashFlow) * 100;
+
+	// Full amortization schedule for the loan (used to extract principal per year)
 	const amortization = calculateAmortization(loanValue, years * 12, interest);
 	const principalPayment = useLoan ? getPrincipalForYear(amortization, 1) : 0;
+
+	// Property value growth schedule over the holding period
 	const interestPayments = calculateInterestValues(propertyCurrentValue, propertyIncrement, holdingLength);
-	let propertyCost = (Math.abs(beginCashFlow) - closingCost) + interestPayments[0] +  principalPayment;
-	let propertyCostPure = propertyCost - (propertyCost * costSell / 100);
+
+	// Initial equity position (down payment + closing costs + repairs)
+	let propertyCost = (Math.abs(beginCashFlow) - closingCost) + interestPayments[0] + principalPayment;
+	let propertyCostPure = propertyCost - (propertyCost * costSell / 100); // net after selling costs
+
+	// Seed the results array with Year 1 data
 	let result = [
 		{
 			yearIncome,
@@ -117,8 +162,12 @@ function calculate(){
 		}
 	];
 
+	// ── Multi-Year Projection ────────────────────────────────────────────────────
+	// Each iteration grows income and expenses by their respective annual rates.
+	// Mortgage payments stop once the loan term is exceeded.
+	// On the final year, the net sale proceeds are added into cash flow.
 	for(let i = 1; i < holdingLength; i++) {
-		if(i >= years) yearMortgagePayment = 0;
+		if(i >= years) yearMortgagePayment = 0; // Loan fully paid — no more payments
 		let yearIncome = result[i - 1].yearIncome * (1 + priceIncrease / 100);
 		let yearOtherIncome = result[i - 1].yearOtherIncome * (1 + otherIncrease / 100);
 		let propertyTax = result[i - 1].propertyTax * (1 + taxIncrease / 100);
@@ -155,25 +204,35 @@ function calculate(){
 		});
 	}
 
+	// ── Summary Metrics ──────────────────────────────────────────────────────────
+	// Aggregate totals across the entire holding period
 	const totalIncome = result.reduce((acc, item) => acc + item.yearIncome + item.yearOtherIncome, 0);
 	const totalTaxes = result.reduce((acc, item) => acc + item.taxes, 0);
 
+	// Add the remaining loan balance if sold before the loan matures
 	let totalMortgage = result.reduce((acc, item) => acc + item.yearMortgagePayment, 0);
 	if(years > holdingLength) {
 		totalMortgage += calculateRemainder(loanValue, years * 12, interest, holdingLength * 12);
 	}
+
+	// Total profit: income - expenses + net sale proceeds + initial cash invested
 	const totalProfit = totalIncome - totalTaxes - totalMortgage + propertySellPrice - propertySellPrice * costSell / 100 + beginCashFlow;
 	const cashOnCash = totalProfit / Math.abs(beginCashFlow) * 100;
+	// Cap rate uses Year-1 NOI vs. purchase price (standard real estate metric)
 	const purchaseCap = (result[0].yearIncome + result[0].yearOtherIncome - result[0].taxes) / (price) * 100;
 	const noi = totalIncome - totalTaxes;
+
+	// Build the IRR cash-flow array: initial outlay (negative) followed by annual flows
 	const cashFlows = result.map(item => item.cashFlow);
 	cashFlows.unshift(beginCashFlow);
 	const irr = calculateAnnualIRR(cashFlows);
 	const mortgagePayments = result.reduce((acc, item) => acc + item.yearMortgagePayment, 0);
 
-	const vacancy = (rentalPrice + otherIncome) * vacancyRate / 100;
+	const vacancy   = (rentalPrice + otherIncome) * vacancyRate / 100;
 	const management = (rentalPrice + otherIncome) * managementFee / 100;
 	const firstYearCashFlow = result[0].cashFlow;
+
+	// ── Write Results to Output Elements ─────────────────────────────────────────
 	output.val(roundTo(irr, 2) + '%').set('irr');
 	output.val(currencyFormat(totalProfit)).set('total-profit');
 	output.val(roundTo(cashOnCash, 2) + '%').set('cash-on-return');

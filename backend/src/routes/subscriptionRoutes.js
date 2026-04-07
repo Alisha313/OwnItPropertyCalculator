@@ -1,12 +1,36 @@
+/**
+ * @file subscriptionRoutes.js
+ * @project OwnIt Property Calculator
+ * @description Manages user subscription lifecycle including free trials,
+ *              plan selection, payment method registration, activation,
+ *              cancellation, and real estate agent contact requests.
+ *
+ * Endpoints:
+ *   GET  /api/subscriptions/plans           - List all available plans
+ *   GET  /api/subscriptions/status          - Current user's subscription status
+ *   POST /api/subscriptions/start-trial     - Begin a 30-day free trial
+ *   POST /api/subscriptions/select-plan     - Choose a subscription plan
+ *   POST /api/subscriptions/add-payment-method - Register a payment method
+ *   POST /api/subscriptions/activate        - Activate a paid subscription
+ *   POST /api/subscriptions/cancel          - Cancel current subscription
+ *   POST /api/subscriptions/contact-agent   - Submit a real estate agent request
+ *   GET  /api/subscriptions/agent-requests  - View submitted agent requests
+ */
+
 import express from "express";
 import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
 import { authenticateToken } from "./authRoutes.js";
 
 const router = express.Router();
-const TRIAL_DAYS = 30;
+const TRIAL_DAYS = 30; // Duration of the free trial period in days
 
+// Lazy initialization flag: connect to MongoDB on the first request
 let initialized = false;
 
+/**
+ * Ensures MongoDB is connected and seed data is loaded before handling a request.
+ * Runs only once per server process lifetime.
+ */
 async function ensureInitialized() {
   if (!initialized) {
     await connectToMongoDB();
@@ -15,17 +39,34 @@ async function ensureInitialized() {
   }
 }
 
+/**
+ * Converts any date-like value to a Date object.
+ * Returns null for falsy or invalid values.
+ * @param {string|Date|null} value
+ * @returns {Date|null}
+ */
 function parseDate(value) {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/**
+ * Calculates how many whole days remain until the given date.
+ * Returns 0 if the date has already passed.
+ * @param {Date|null} date
+ * @returns {number}
+ */
 function daysUntil(date) {
   if (!date) return 0;
   return Math.max(0, Math.ceil((date - new Date()) / (1000 * 60 * 60 * 24)));
 }
 
+/**
+ * Fetches the most recently updated subscription document for a user.
+ * @param {string} userId - The user's MongoDB ID string.
+ * @returns {Promise<object|null>}
+ */
 async function getLatestSubscription(userId) {
   return await mongo.subscriptions()
     .findOne(
@@ -34,11 +75,22 @@ async function getLatestSubscription(userId) {
     );
 }
 
+/**
+ * Looks up a subscription plan by its ID.
+ * @param {string|null} planId
+ * @returns {Promise<object|null>}
+ */
 async function getPlanById(planId) {
   if (!planId) return null;
   return await mongo.subscription_plans().findOne({ _id: planId });
 }
 
+/**
+ * Enriches a subscription document with its linked plan's name, billing cycle,
+ * and price, avoiding the need for callers to perform a second query.
+ * @param {object|null} subscription
+ * @returns {Promise<object|null>}
+ */
 async function withPlanFields(subscription) {
   if (!subscription) return null;
   const plan = await getPlanById(subscription.plan_id);
@@ -50,6 +102,13 @@ async function withPlanFields(subscription) {
   };
 }
 
+/**
+ * Determines whether a subscription currently grants access to the platform.
+ * Trials are active if the trial end date is in the future.
+ * Paid subscriptions are active if no end date is set, or end date is future.
+ * @param {object|null} subscription
+ * @returns {Promise<boolean>}
+ */
 async function hasLiveAccess(subscription) {
   if (!subscription) return false;
 

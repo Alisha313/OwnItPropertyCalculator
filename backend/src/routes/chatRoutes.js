@@ -1,3 +1,18 @@
+/**
+ * @file chatRoutes.js
+ * @project OwnIt Property Calculator
+ * @description AI-powered real estate chat assistant routes.
+ *              Users receive one free week of access to the chat feature.
+ *              After that, a paid subscription is required. Chat history
+ *              is persisted in MongoDB for context-aware conversations.
+ *
+ *              The AI client prefers Groq (free tier) and falls back to OpenAI.
+ *
+ * Endpoints:
+ *   GET  /api/chat/session  - Retrieve or create the user's chat session
+ *   POST /api/chat/message  - Send a message and receive an AI reply
+ */
+
 import express from "express";
 import OpenAI from "openai";
 import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
@@ -5,8 +20,13 @@ import { authenticateToken } from "./authRoutes.js";
 
 const router = express.Router();
 
+// Lazy initialization flag: connect to MongoDB on the first request
 let initialized = false;
 
+/**
+ * Ensures MongoDB is connected and seed data is loaded before handling a request.
+ * Runs only once per server process lifetime.
+ */
 async function ensureInitialized() {
   if (!initialized) {
     await connectToMongoDB();
@@ -15,7 +35,13 @@ async function ensureInitialized() {
   }
 }
 
-// ── AI client — prefers Groq (free), falls back to OpenAI ────────────────────
+/**
+ * Returns the configured AI client and model name.
+ * Prefers Groq (free, fast) when a GROQ_API_KEY is present;
+ * falls back to OpenAI if an OPENAI_API_KEY is available.
+ * Returns null if neither key is configured.
+ * @returns {{ client: OpenAI, model: string }|null}
+ */
 function getAIClient() {
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey && groqKey !== "your_groq_api_key_here") {
@@ -54,19 +80,30 @@ When doing mortgage math, show your work clearly with numbers. For example: "On 
 You have access to the full conversation history, so always remember what the user said before.`;
 
 // ── Fallback responses when no API key is configured ─────────────────────────
+// Shown to users when neither GROQ_API_KEY nor OPENAI_API_KEY is set in .env
 const FALLBACK_RESPONSES = [
   "I'm your OwnIt AI assistant! To enable real AI responses, add a free Groq API key to the backend `.env` file (`GROQ_API_KEY=gsk_...`). Get one free at console.groq.com — no credit card needed!",
   "Great question! For live AI-powered answers, grab a free key at console.groq.com and set `GROQ_API_KEY` in your backend `.env`. Once that's set, I can answer anything about mortgages, market trends, and more.",
 ];
 
-// ── Call AI (Groq or OpenAI) with full conversation history ──────────────────
+/**
+ * Sends the user's message plus conversation history to the AI provider
+ * and returns the assistant's reply as a plain string.
+ *
+ * @param {string}   userMessage         - The latest message from the user.
+ * @param {Array<{role: string, content: string}>} conversationHistory
+ *        - Prior messages in the session (oldest first).
+ * @returns {Promise<string>} The AI's reply, or a fallback hint if no key is set.
+ */
 async function getAIReply(userMessage, conversationHistory) {
   const ai = getAIClient();
 
+  // No API key configured — return a helpful setup hint
   if (!ai) {
     return FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
   }
 
+  // Build the message array: system prompt + chat history + new user message
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
     ...conversationHistory.map(m => ({
@@ -79,8 +116,8 @@ async function getAIReply(userMessage, conversationHistory) {
   const completion = await ai.client.chat.completions.create({
     model: ai.model,
     messages,
-    max_tokens: 600,
-    temperature: 0.7,
+    max_tokens: 600,  // Keep responses concise for chat UX
+    temperature: 0.7, // Balanced creativity vs. accuracy
   });
 
   return completion.choices[0].message.content.trim();

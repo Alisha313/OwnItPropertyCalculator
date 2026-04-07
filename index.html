@@ -1,71 +1,132 @@
+<!--
+  ============================================================
+  index.html — OwnIt Property Calculator
+  ============================================================
+  Project  : OwnIt Property Calculator
+  Purpose  : Single-page application (SPA) shell.
+             All page content is injected into #app by the
+             client-side router defined in assets/app.js.
+
+  Structure:
+    <head>   — Meta tags, global stylesheet, and third-party
+               libraries (Leaflet map, Chart.js)
+    <body>
+      .home-bg-property  — Decorative animated SVG background
+      <header>           — Top navigation bar + auth controls
+      <main>#app</main>  — SPA mount point (router injects here)
+      <footer>           — Site footer
+      <script>           — ES module entry point (assets/app.js)
+  ============================================================
+-->
 <!doctype html>
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Own It Property Calculator</title>
+
+  <!-- Global stylesheet: layout, components, light/dark theme variables -->
   <link rel="stylesheet" href="assets/app.css" />
-  <!-- Leaflet CSS for map -->
+
+  <!-- Leaflet CSS — required for the interactive property map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
         crossorigin="" />
-  <!-- Leaflet JS -->
+
+  <!-- Leaflet JS — map rendering and marker interaction -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <!-- Chart.js for market trends -->
+
+  <!-- Chart.js — used for market trend charts on listing detail pages -->
   <script src="assets/js/lib/chartjs/chart.umd.js"></script>
 </head>
 
 <body>
-  <!-- Property-themed background -->
+
+  <!-- ══════════════════════════════════════════════════════
+       Decorative Background
+       Floating SVG property icons and a skyline silhouette
+       animated via CSS keyframes in app.css.
+  ══════════════════════════════════════════════════════ -->
   <div class="home-bg-property">
     <div class="home-bg-property__icons">
+      <!-- House icons at varied positions and animation offsets -->
       <svg class="prop-icon" style="top:8%;left:5%;animation-delay:0s;" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
       <svg class="prop-icon" style="top:15%;right:12%;animation-delay:-3s;" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
+      <!-- Key icons -->
       <svg class="prop-icon prop-icon--key" style="top:35%;left:15%;animation-delay:-6s;" viewBox="0 0 24 24"><path d="M12.65 10a6 6 0 1 0 0 4H17v4h4v-4h2v-4H12.65zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>
       <svg class="prop-icon" style="top:50%;right:8%;animation-delay:-2s;" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
+      <!-- Building icons -->
       <svg class="prop-icon prop-icon--bldg" style="top:25%;left:45%;animation-delay:-9s;" viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zm0-4h4v-4H3v4zm6 0h4v-4H9v4zm6 0h4v-4h-4v4zM3 9h4V5H3v4zm6 0h4V5H9v4zm6 0h4V5h-4v4z"/></svg>
       <svg class="prop-icon prop-icon--key" style="top:60%;left:70%;animation-delay:-5s;" viewBox="0 0 24 24"><path d="M12.65 10a6 6 0 1 0 0 4H17v4h4v-4h2v-4H12.65zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>
       <svg class="prop-icon" style="top:70%;left:30%;animation-delay:-11s;" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
       <svg class="prop-icon prop-icon--bldg" style="top:12%;left:75%;animation-delay:-7s;" viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zm0-4h4v-4H3v4zm6 0h4v-4H9v4zm6 0h4v-4h-4v4zM3 9h4V5H3v4zm6 0h4V5H9v4zm6 0h4V5h-4v4z"/></svg>
     </div>
+    <!-- CSS-drawn city skyline silhouette -->
     <div class="home-bg-property__skyline"></div>
   </div>
 
+  <!-- ══════════════════════════════════════════════════════
+       Top Navigation Bar
+       Brand logo, primary nav links, and authentication
+       controls (login/logout + theme toggle).
+       Auth button visibility is managed by assets/app.js.
+  ══════════════════════════════════════════════════════ -->
   <header class="topbar">
     <div class="container topbar__row">
+
+      <!-- Brand — clicking always returns to the home page -->
       <a class="brand" href="#/">
         <span class="brand__logo">OI</span>
         <span class="brand__text">Own It</span>
       </a>
 
+      <!-- Primary navigation — active link styled by the router -->
       <nav class="nav">
         <a href="#/">Home</a>
         <a href="#/sales">Sales</a>
         <a href="#/rentals">Rentals</a>
         <a href="#/mortgage">Mortgage</a>
         <a href="#/contact">Contact</a>
+        <!-- Subscription link is hidden until the user is logged in -->
         <a id="subNav" href="#/subscription" class="hidden">Subscription</a>
       </nav>
 
+      <!-- Authentication controls + theme toggle -->
       <div class="auth">
-        <!-- Theme Toggle -->
+
+        <!-- Theme toggle: switches between sun (light) and moon (dark) icon -->
         <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">
           <svg class="theme-toggle__sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           <svg class="theme-toggle__moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
+
+        <!-- Greeting badge — shown when the user is logged in (e.g. "Hi, Alisha") -->
         <span id="userBadge" class="badge hidden"></span>
+
+        <!-- Login button — hidden when user is authenticated -->
         <a id="loginBtn" class="btn btn--ghost" href="#/auth">Login</a>
+
+        <!-- Logout button — visible only when user is authenticated -->
         <button id="logoutBtn" class="btn btn--ghost hidden" type="button">Logout</button>
       </div>
     </div>
   </header>
 
+  <!-- ══════════════════════════════════════════════════════
+       SPA Mount Point
+       The client-side router (assets/app.js) clears this
+       element and injects the current page's DOM on every
+       hash-change event.
+  ══════════════════════════════════════════════════════ -->
   <main class="container">
     <div id="app"></div>
   </main>
 
+  <!-- ══════════════════════════════════════════════════════
+       Footer
+  ══════════════════════════════════════════════════════ -->
   <footer class="footer">
     <div class="container footer__row">
       <div>
@@ -76,6 +137,7 @@
     </div>
   </footer>
 
+  <!-- ES module entry point — bootstraps auth, routing, and the theme system -->
   <script type="module" src="assets/app.js"></script>
 </body>
 </html>

@@ -1,3 +1,11 @@
+/**
+ * @file functions.js
+ * @project OwnIt Property Calculator
+ * @description Global UI utility functions used across all calculator pages.
+ *              Provides input switcher logic, tab navigation, measurement system
+ *              toggling (metric/imperial), and a convenience alias for console.log.
+ */
+
 window.log = console.log;
 
 window.setValue = function (inputId, value, index){

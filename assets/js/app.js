@@ -1,5 +1,16 @@
+/**
+ * @file app.js  (assets/js/app.js)
+ * @project OwnIt Property Calculator
+ * @description Legacy calculator bootstrap script.
+ *              Lazily loads optional UI modules (input masks, date/time pickers,
+ *              dropdown icons, modal windows) only when their matching DOM
+ *              elements are present, reducing unnecessary network requests.
+ */
+
 'use strict'
 
+// ── DOM Shortcuts ─────────────────────────────────────────────────────────────
+// Concise aliases attached to window so inline HTML event handlers can use them
 window._ = document.getElementById.bind(document);
 window.$ = document.querySelector.bind(document);
 window.$$ = document.querySelectorAll.bind(document);
