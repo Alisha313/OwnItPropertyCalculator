@@ -135,37 +135,39 @@ function currentTileUrl() {
   return document.documentElement.classList.contains('light') ? TILE_LIGHT : TILE_DARK;
 }
 
-// Set dark mode by default if no theme is stored
-if (!localStorage.getItem('theme')) {
-  document.documentElement.classList.add('dark');
-  localStorage.setItem('theme', 'dark');
+function applyTheme(theme, notify = false) {
+  const root = document.documentElement;
+  const nextTheme = theme === 'light' ? 'light' : 'dark';
+  root.classList.remove('light', 'dark');
+  root.classList.add(nextTheme);
+  localStorage.setItem('theme', nextTheme);
+  if (notify) window.dispatchEvent(new Event('ownit-theme-change'));
 }
+
+// Apply saved preference on startup; default to dark.
+applyTheme(localStorage.getItem('theme') || 'dark');
 
 // Theme toggle click handler
 document.getElementById('themeToggle').addEventListener('click', function() {
   const isDark = document.documentElement.classList.contains('dark');
   if (isDark) {
-    document.documentElement.classList.remove('dark');
-    document.documentElement.classList.add('light');
-    localStorage.setItem('theme', 'light');
+    applyTheme('light', true);
     console.log('Theme: Light');
   } else {
-    document.documentElement.classList.remove('light');
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('theme', 'dark');
+    applyTheme('dark', true);
     console.log('Theme: Dark');
   }
-  window.dispatchEvent(new Event('ownit-theme-change'));
 });
 
 render();
 
 
 function render() {
-  const path = (location.hash || "#/").replace("#", "");
+  const fullPath = (location.hash || "#/").replace("#", "");
+  const path = fullPath.split("?")[0] || "/";
 
   // Handle dynamic /listing/:id route
-  const listingMatch = path.match(/^\/listing\/(.+)$/);
+  const listingMatch = path.match(/^\/listing\/([^?]+)$/);
   let page;
   let navPath = path;
   if (listingMatch) {
@@ -2166,7 +2168,35 @@ function MortgagePage() {
   rentalCalcBtn.addEventListener("click",   () => switchCalculator("rental"));
   rvbCalcBtn.addEventListener("click",      () => switchCalculator("rvb"));
 
+  function applyListingPrefillFromHash() {
+    const hash = location.hash || "";
+    const qIndex = hash.indexOf("?");
+    if (qIndex < 0) return;
+
+    const params = new URLSearchParams(hash.slice(qIndex + 1));
+    const kind = (params.get("kind") || "").toLowerCase();
+    const listingPrice = Number(params.get("price"));
+
+    if (kind === "rental") {
+      if (Number.isFinite(listingPrice) && listingPrice > 0) {
+        el.querySelector("#monthlyRent").value = Math.round(listingPrice);
+      }
+      switchCalculator("rental");
+      calcRental();
+      return;
+    }
+
+    if (kind === "sale" || kind === "mortgage") {
+      if (Number.isFinite(listingPrice) && listingPrice > 0) {
+        el.querySelector("#homePrice").value = Math.round(listingPrice);
+      }
+      switchCalculator("mortgage");
+      calc();
+    }
+  }
+
   calc();
+  applyListingPrefillFromHash();
   return el;
 }
 
@@ -2187,6 +2217,12 @@ function ListingDetailPage(id) {
       const imgUrl = l.image_url || defaultImg;
       const statusClass = l.status === "active" ? "status-active" : "status-sold";
       const statusText = l.status === "active" ? "Active" : (isRent ? "Rented" : "Sold");
+      const calculatorQuery = new URLSearchParams({
+        kind: isRent ? "rental" : "sale",
+        price: String(l.price || ""),
+        listingId: String(l.id || "")
+      });
+      const calculatorHref = `#/mortgage?${calculatorQuery.toString()}`;
 
       el.innerHTML = `
         <a href="#/${isRent ? 'rentals' : 'sales'}" class="back-link">← Back to ${isRent ? 'Rentals' : 'Sales'}</a>
@@ -2238,7 +2274,7 @@ function ListingDetailPage(id) {
               <div class="card__muted" style="margin-bottom:12px;">
                 ${isRent ? 'Estimate your monthly costs' : 'Calculate your mortgage payment'}
               </div>
-              <a class="btn btn--primary" href="#/mortgage" style="display:block;width:100%;text-align:center;box-sizing:border-box;">
+              <a class="btn btn--primary" href="${calculatorHref}" style="display:block;width:100%;text-align:center;box-sizing:border-box;">
                 ${isRent ? '🔑 Rental Calculator' : '🏦 Mortgage Calculator'}
               </a>
               ${currentUser ? `
@@ -3093,7 +3129,7 @@ async function showAiValuationPrompt() {
       📊 <b>AI Property Valuation</b><br><br>
       Enter a listing ID to get an AI-powered value estimate:
       <div style="margin-top: 12px; display: flex; gap: 8px;">
-        <input type="number" id="aiValuationInput" placeholder="Enter Listing ID" 
+        <input type="text" id="aiValuationInput" placeholder="Enter Listing ID (e.g., sale_NJ)" 
           style="flex: 1; padding: 8px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font-size: 13px;">
         <button id="aiValuationSubmit" class="btn btn--small" style="padding: 8px 16px;">Get Estimate</button>
       </div>
@@ -3107,12 +3143,12 @@ async function showAiValuationPrompt() {
 
   // Add submit handler
   document.getElementById('aiValuationSubmit').addEventListener('click', async () => {
-    const listingId = document.getElementById('aiValuationInput').value;
+    const listingId = document.getElementById('aiValuationInput').value.trim();
     if (!listingId) {
       showToast('Please enter a listing ID', 'warning');
       return;
     }
-    await fetchAiValuation(parseInt(listingId));
+    await fetchAiValuation(listingId);
   });
 
   document.getElementById('aiValuationInput').addEventListener('keypress', (e) => {
@@ -3133,12 +3169,22 @@ async function fetchAiValuation(listingId) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
   try {
-    const data = await apiFetch(`/api/ai/valuation?listingId=${listingId}`);
+    const data = await apiFetch(`/api/ai/valuation?listingId=${encodeURIComponent(listingId)}`);
     loadingEl.remove();
 
-    const diffPercent = ((data.estimatedValue - data.listing.price) / data.listing.price * 100).toFixed(1);
+    const listedPrice = Number(data.listedPrice || 0);
+    const diffPercent = listedPrice > 0
+      ? ((data.estimatedValue - listedPrice) / listedPrice * 100).toFixed(1)
+      : '0.0';
     const diffClass = diffPercent >= 0 ? 'above' : 'below';
-    const confidenceClass = data.compsUsed >= 3 ? 'high' : data.compsUsed >= 2 ? 'medium' : 'low';
+    const comparableCount = Array.isArray(data.compsUsed) ? data.compsUsed.length : 0;
+    const confidenceClass = comparableCount >= 3 ? 'high' : comparableCount >= 2 ? 'medium' : 'low';
+
+    const adjustmentText = Array.isArray(data.adjustments) && data.adjustments.length > 0
+      ? data.adjustments
+          .map(adj => `${cap(adj.factor)}: ${adj.percent > 0 ? '+' : ''}${Number(adj.percent).toFixed(1)}%`)
+          .join(' | ')
+      : 'No major adjustments';
 
     messagesEl.innerHTML += `
       <div class="chat-message chat-message--agent">
@@ -3150,15 +3196,13 @@ async function fetchAiValuation(listingId) {
             </span>
           </div>
           <div class="ai-valuation__diff ai-valuation__diff--${diffClass}">
-            ${diffPercent >= 0 ? '↑' : '↓'} ${Math.abs(diffPercent)}% ${diffPercent >= 0 ? 'above' : 'below'} listed price ($${data.listing.price.toLocaleString()})
+            ${diffPercent >= 0 ? '↑' : '↓'} ${Math.abs(diffPercent)}% ${diffPercent >= 0 ? 'above' : 'below'} listed price (${money(listedPrice)})
           </div>
           <div class="ai-valuation__explanation">${data.explanation}</div>
           <div class="ai-valuation__comps">
-            <div class="ai-valuation__comps-title">Based on ${data.compsUsed} comparable properties</div>
+            <div class="ai-valuation__comps-title">Based on ${comparableCount} comparable properties</div>
             <div class="ai-valuation__comp">
-              <strong>Adjustments:</strong> Bedrooms: ${data.adjustments.bedrooms > 0 ? '+' : ''}$${data.adjustments.bedrooms.toLocaleString()} | 
-              Bathrooms: ${data.adjustments.bathrooms > 0 ? '+' : ''}$${data.adjustments.bathrooms.toLocaleString()} | 
-              Age: ${data.adjustments.age > 0 ? '+' : ''}$${data.adjustments.age.toLocaleString()}
+              <strong>Adjustments:</strong> ${adjustmentText}
             </div>
           </div>
         </div>

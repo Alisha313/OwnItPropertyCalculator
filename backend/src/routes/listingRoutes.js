@@ -114,19 +114,21 @@ router.get("/map", async (req, res) => {
     
     const { kind } = req.query;
 
-    if (!kind || (kind !== "sale" && kind !== "rental")) {
+    if (kind && kind !== "sale" && kind !== "rental") {
       return res.status(400).json({ error: "kind must be sale or rental" });
     }
 
+    const mapFilter = {
+      status: "active",
+      lat: { $ne: null },
+      lng: { $ne: null }
+    };
+    if (kind) mapFilter.kind = kind;
+
     const listings = await mongo.listings()
-      .find({
-        kind,
-        status: "active",
-        lat: { $ne: null },
-        lng: { $ne: null }
-      })
+      .find(mapFilter)
       .project({
-        id: 1, city: 1, state: 1, price: 1, lat: 1, lng: 1,
+        id: 1, kind: 1, city: 1, state: 1, price: 1, lat: 1, lng: 1,
         type: 1, bedrooms: 1, bathrooms: 1, address: 1, sqft: 1
       })
       .sort({ price: -1 })
