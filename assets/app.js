@@ -117,6 +117,7 @@ const routes = {
   "/auth": AuthPage,
   "/contact": ContactPage,
   "/subscription": SubscriptionPage,
+  "/agent-chat": AgentChatPage,
 };
 
 window.addEventListener("hashchange", render);
@@ -484,7 +485,23 @@ function HomePage() {
       },
     };
 
+    // Manual centroid overrides for states whose geometric center lands awkwardly
+    // (in water, on the wrong peninsula, way off the visible shape, etc.)
+    const STATE_LABEL_OVERRIDES = {
+      AK: [64.5, -152.0],   // Interior Alaska
+      HI: [20.7, -156.5],   // Centered between islands
+      FL: [28.6, -82.0],    // Peninsula center
+      MI: [43.6, -85.0],    // Lower peninsula
+      LA: [31.0, -92.0],    // Avoid Gulf bulge
+      ID: [44.5, -114.5],   // Northern interior
+      MD: [38.9, -76.9],    // Avoid Eastern Shore split
+      VA: [37.7, -79.0],    // Avoid Eastern Shore
+      CA: [37.0, -119.5],
+      TX: [31.2, -99.5],
+    };
+
     let stateLayer = null;
+    let stateLabelLayer = null;
     let geoJsonData = null;
 
     function stateStyle(feature, isDark) {
@@ -492,6 +509,54 @@ function HomePage() {
       const region = STATE_REGION[abbr] || 'ne';
       const c = (isDark ? REGION_COLORS.dark : REGION_COLORS.light)[region];
       return { fillColor: c.fill, fillOpacity: isDark ? 0.42 : 0.55, color: c.border, weight: 1, opacity: 0.9 };
+    }
+
+    function openStatePopup(latlng, name, abbr) {
+      const popupHtml = `
+        <div class="map-popup-state">
+          <div class="map-popup-state__title">${name} (${abbr})</div>
+          <a class="map-popup-btn map-popup-btn--sales" href="#/sales?state=${abbr}">View Sales →</a>
+          <a class="map-popup-btn map-popup-btn--rentals" href="#/rentals?state=${abbr}">View Rentals →</a>
+        </div>
+      `;
+      L.popup({ closeButton: true, autoClose: true })
+        .setLatLng(latlng)
+        .setContent(popupHtml)
+        .openOn(map);
+    }
+
+    function renderStateLabels() {
+      if (stateLabelLayer) { map.removeLayer(stateLabelLayer); stateLabelLayer = null; }
+      if (!geoJsonData) return;
+      stateLabelLayer = L.layerGroup();
+      geoJsonData.features.forEach(f => {
+        const name = f.properties.name || '';
+        const abbr = STATE_NAME_TO_ABBR[name];
+        if (!abbr) return;
+        let center;
+        if (STATE_LABEL_OVERRIDES[abbr]) {
+          center = L.latLng(STATE_LABEL_OVERRIDES[abbr][0], STATE_LABEL_OVERRIDES[abbr][1]);
+        } else {
+          // Compute centroid from feature bounds
+          const tmp = L.geoJSON(f);
+          center = tmp.getBounds().getCenter();
+        }
+        const labelMarker = L.marker(center, {
+          interactive: true,
+          keyboard: false,
+          icon: L.divIcon({
+            className: 'state-label',
+            html: `<span class="state-label__txt">${abbr}</span>`,
+            iconSize: [28, 18],
+            iconAnchor: [14, 9],
+          }),
+        });
+        labelMarker.on('click', (e) => {
+          openStatePopup(e.latlng, name, abbr);
+        });
+        labelMarker.addTo(stateLabelLayer);
+      });
+      stateLabelLayer.addTo(map);
     }
 
     async function renderStateLayer(isDark) {
@@ -510,7 +575,7 @@ function HomePage() {
           const region = STATE_REGION[abbr] || 'ne';
           const c = (isDark ? REGION_COLORS.dark : REGION_COLORS.light)[region];
           layer.bindTooltip(
-            `<span style="font-weight:700;font-size:12px;">${name}</span>`,
+            `<span style="font-weight:700;font-size:12px;">${name} (${abbr})</span>`,
             { sticky: true, opacity: 1, className: 'state-tooltip' }
           );
           layer.on({
@@ -518,11 +583,14 @@ function HomePage() {
               e.target.setStyle({ fillColor: c.hover, fillOpacity: isDark ? 0.72 : 0.78, weight: 2 });
             },
             mouseout(e) { stateLayer.resetStyle(e.target); },
-            click(e)    { map.fitBounds(e.target.getBounds(), { padding: [30, 30], maxZoom: 7 }); },
+            click(e) {
+              if (abbr) openStatePopup(e.latlng, name, abbr);
+            },
           });
         },
       }).addTo(map);
       stateLayer.bringToBack();
+      renderStateLabels();
     }
 
     const isDarkTheme = () => !document.documentElement.classList.contains('light');
@@ -534,36 +602,9 @@ function HomePage() {
       renderStateLayer(isDarkTheme());
     });
 
-    // Property hotspot cities with coordinates
-    const hotspots = [
-      { city: "New York", state: "NY", lat: 40.7128, lng: -74.006, color: "#7c5cff", listings: 45, avgPrice: "$3,200" },
-      { city: "Los Angeles", state: "CA", lat: 34.0522, lng: -118.2437, color: "#29d7ff", listings: 38, avgPrice: "$2,800" },
-      { city: "Chicago", state: "IL", lat: 41.8781, lng: -87.6298, color: "#6bcb77", listings: 29, avgPrice: "$1,900" },
-      { city: "Houston", state: "TX", lat: 29.7604, lng: -95.3698, color: "#ffd93d", listings: 33, avgPrice: "$1,600" },
-      { city: "Miami", state: "FL", lat: 25.7617, lng: -80.1918, color: "#ff6b9d", listings: 27, avgPrice: "$2,500" },
-      { city: "Seattle", state: "WA", lat: 47.6062, lng: -122.3321, color: "#a78bfa", listings: 22, avgPrice: "$2,400" },
-      { city: "Denver", state: "CO", lat: 39.7392, lng: -104.9903, color: "#7c5cff", listings: 18, avgPrice: "$2,100" },
-      { city: "Phoenix", state: "AZ", lat: 33.4484, lng: -112.074, color: "#29d7ff", listings: 25, avgPrice: "$1,800" },
-      { city: "Atlanta", state: "GA", lat: 33.749, lng: -84.388, color: "#6bcb77", listings: 21, avgPrice: "$1,700" },
-      { city: "Boston", state: "MA", lat: 42.3601, lng: -71.0589, color: "#ffd93d", listings: 19, avgPrice: "$2,900" },
-      { city: "San Francisco", state: "CA", lat: 37.7749, lng: -122.4194, color: "#ff6b9d", listings: 31, avgPrice: "$3,500" },
-      { city: "Nashville", state: "TN", lat: 36.1627, lng: -86.7816, color: "#a78bfa", listings: 16, avgPrice: "$1,800" },
-      { city: "Austin", state: "TX", lat: 30.2672, lng: -97.7431, color: "#7c5cff", listings: 24, avgPrice: "$2,000" },
-      { city: "Portland", state: "OR", lat: 45.5152, lng: -122.6784, color: "#29d7ff", listings: 14, avgPrice: "$2,200" },
-      { city: "Charlotte", state: "NC", lat: 35.2271, lng: -80.8431, color: "#6bcb77", listings: 17, avgPrice: "$1,500" },
-      { city: "Las Vegas", state: "NV", lat: 36.1699, lng: -115.1398, color: "#ffd93d", listings: 20, avgPrice: "$1,700" },
-      { city: "Minneapolis", state: "MN", lat: 44.9778, lng: -93.265, color: "#ff6b9d", listings: 12, avgPrice: "$1,600" },
-      { city: "Philadelphia", state: "PA", lat: 39.9526, lng: -75.1652, color: "#a78bfa", listings: 23, avgPrice: "$1,800" },
-      { city: "San Diego", state: "CA", lat: 32.7157, lng: -117.1611, color: "#7c5cff", listings: 26, avgPrice: "$2,600" },
-      { city: "Dallas", state: "TX", lat: 32.7767, lng: -96.797, color: "#29d7ff", listings: 28, avgPrice: "$1,700" },
-      { city: "Salt Lake City", state: "UT", lat: 40.7608, lng: -111.891, color: "#6bcb77", listings: 11, avgPrice: "$1,500" },
-      { city: "Raleigh", state: "NC", lat: 35.7796, lng: -78.6382, color: "#ffd93d", listings: 15, avgPrice: "$1,600" },
-      { city: "Detroit", state: "MI", lat: 42.3314, lng: -83.0458, color: "#ff6b9d", listings: 13, avgPrice: "$1,200" },
-      { city: "Kansas City", state: "MO", lat: 39.0997, lng: -94.5786, color: "#a78bfa", listings: 10, avgPrice: "$1,300" },
-      { city: "Tampa", state: "FL", lat: 27.9506, lng: -82.4572, color: "#7c5cff", listings: 22, avgPrice: "$2,000" },
-    ];
+    const SALES_COLOR = "#7c5cff";   // matches --accent
+    const RENTALS_COLOR = "#29d7ff";  // matches --accent2
 
-    // Custom pulsing circle marker
     function createPulseIcon(color) {
       return L.divIcon({
         className: 'map-pulse-marker',
@@ -573,20 +614,58 @@ function HomePage() {
       });
     }
 
-    hotspots.forEach(h => {
-      const marker = L.marker([h.lat, h.lng], { icon: createPulseIcon(h.color) }).addTo(map);
-      marker.bindPopup(`
-        <div style="font-family:var(--font);min-width:160px;">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${h.city}, ${h.state}</div>
-          <div style="color:#666;font-size:12px;margin-bottom:6px;">~${h.listings} active listings</div>
-          <div style="font-weight:600;color:#7c5cff;font-size:13px;">Avg ${h.avgPrice}/mo</div>
-          <div style="display:flex;gap:8px;margin-top:8px;">
-            <a href="#/sales" style="font-size:12px;color:#7c5cff;text-decoration:underline;">Sales →</a>
-            <a href="#/rentals" style="font-size:12px;color:#29d7ff;text-decoration:underline;">Rentals →</a>
-          </div>
-        </div>
-      `);
-    });
+    // Add a legend overlay so users can tell Sales vs Rentals at a glance
+    const legend = L.control({ position: 'topright' });
+    legend.onAdd = function () {
+      const div = L.DomUtil.create('div', 'map-legend');
+      div.innerHTML = `
+        <div class="map-legend__title">Listings</div>
+        <div class="map-legend__row"><span class="map-legend__dot" style="background:${SALES_COLOR};"></span>Sales</div>
+        <div class="map-legend__row"><span class="map-legend__dot" style="background:${RENTALS_COLOR};"></span>Rentals</div>
+        <div class="map-legend__hint">Click a state to filter</div>
+      `;
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    };
+    legend.addTo(map);
+
+    // Fetch real listings from the API and render colored markers per kind
+    const salesGroup = L.layerGroup().addTo(map);
+    const rentalsGroup = L.layerGroup().addTo(map);
+    (async () => {
+      try {
+        const [salesData, rentalsData] = await Promise.all([
+          apiFetch('/api/listings/map?kind=sale'),
+          apiFetch('/api/listings/map?kind=rental'),
+        ]);
+        const renderMarker = (l, kind) => {
+          if (!l.lat || !l.lng) return;
+          const color = kind === 'sale' ? SALES_COLOR : RENTALS_COLOR;
+          const priceStr = kind === 'sale'
+            ? '$' + Number(l.price || 0).toLocaleString()
+            : '$' + Number(l.price || 0).toLocaleString() + '/mo';
+          const marker = L.marker([l.lat, l.lng], { icon: createPulseIcon(color) });
+          marker.bindPopup(`
+            <div style="font-family:var(--font);min-width:180px;">
+              <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${l.city || ''}${l.state ? ', ' + l.state : ''}</div>
+              ${l.address ? `<div style="color:#666;font-size:12px;margin-bottom:6px;">${l.address}</div>` : ''}
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px;">
+                <span style="font-weight:600;color:${color};">${priceStr}</span>
+                <span style="color:#888;">${l.bedrooms || 0} bd · ${l.bathrooms || 0} ba${l.sqft ? ' · ' + l.sqft.toLocaleString() + ' sqft' : ''}</span>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px;">
+                <a href="#/listing/${l.id}" style="font-size:12px;color:${color};text-decoration:underline;font-weight:600;">View Listing →</a>
+              </div>
+            </div>
+          `);
+          marker.addTo(kind === 'sale' ? salesGroup : rentalsGroup);
+        };
+        (salesData.listings || []).forEach(l => renderMarker(l, 'sale'));
+        (rentalsData.listings || []).forEach(l => renderMarker(l, 'rental'));
+      } catch (err) {
+        console.warn('Could not load map listings:', err);
+      }
+    })();
 
     // Clicking trending market item flies to that city
     el.querySelectorAll(".trending-item").forEach(item => {
@@ -858,6 +937,18 @@ function ListingsPage(kind) {
     sessionStorage.removeItem('easyFilter');
   }
 
+  // Apply URL query params (e.g. from clicking a state on the home map)
+  const hashQs = new URLSearchParams((location.hash.split('?')[1] || ''));
+  const qsState = (hashQs.get('state') || '').toUpperCase();
+  const qsCity = hashQs.get('city') || '';
+  if (qsState) {
+    // Only set if the option exists in the dropdown
+    if ([...f.state.options].some(o => o.value === qsState)) {
+      f.state.value = qsState;
+    }
+  }
+  if (qsCity) f.city.value = qsCity;
+
   // Draw listings
   const draw = async () => {
     grid.innerHTML = `<div class="listings-loading"><div class="spinner"></div>Loading listings...</div>`;
@@ -925,15 +1016,22 @@ function cardListingNew(l, kind) {
   const statusText = l.status === "active" ? "Active" : (isRent ? "Rented" : "Sold");
   const defaultImg = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800";
   const imgUrl = l.image_url || defaultImg;
+  const pricePerSqft = l.sqft && l.price ? Math.round(l.price / l.sqft) : null;
+  const hasDiscount = l.original_price && l.original_price !== l.price;
 
   return `
     <div class="listing-card" onclick="location.hash='#/listing/${l.id}'" style="cursor:pointer;">
       <div class="listing-card__image" style="background-image: url('${imgUrl}');">
         <span class="listing-card__status ${statusClass}">${statusText}</span>
         <span class="listing-card__type">${l.type}</span>
+        ${hasDiscount ? `<span style="position:absolute;top:10px;right:10px;background:#ef4444;color:#fff;padding:4px 10px;border-radius:4px;font-size:0.72rem;font-weight:700;">PRICE REDUCED</span>` : ""}
       </div>
       <div class="listing-card__content">
-        <div class="listing-card__price">${money(l.price, isRent)}</div>
+        <div class="listing-card__price">
+          ${money(l.price, isRent)}
+          ${hasDiscount ? `<span style="text-decoration:line-through;opacity:0.5;font-size:0.8em;margin-left:8px;">${money(l.original_price, isRent)}</span>` : ""}
+        </div>
+        ${pricePerSqft && !isRent ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">$${pricePerSqft}/sq ft</div>` : ""}
         <div class="listing-card__location">
           <span class="location-icon">📍</span>
           ${l.city}${l.state ? ", " + l.state : ""}
@@ -946,7 +1044,12 @@ function cardListingNew(l, kind) {
           ${l.sqft ? `<span class="detail-divider">•</span><span class="detail"><b>${l.sqft.toLocaleString()}</b> sqft</span>` : ""}
         </div>
         ${l.description ? `<p class="listing-card__desc">${l.description}</p>` : ""}
-        ${l.year_built ? `<div class="listing-card__year">Built in ${l.year_built}</div>` : ""}
+        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;font-size:0.78rem;color:var(--muted);">
+          ${l.year_built ? `<span>🏗 Built ${l.year_built}</span>` : ""}
+          ${isRent ? `<span>📋 12-mo lease</span>` : ""}
+          ${!isRent && l.sqft && l.sqft >= 2000 ? `<span>🏠 Spacious</span>` : ""}
+          ${!isRent && l.year_built && l.year_built >= 2018 ? `<span>✨ New Build</span>` : ""}
+        </div>
       </div>
     </div>
   `;
@@ -1013,6 +1116,19 @@ function MortgagePage() {
     "WI": { name: "Wisconsin", rate: 6.77 },
     "WY": { name: "Wyoming", rate: 6.88 },
     "DC": { name: "Washington D.C.", rate: 6.72 }
+  };
+
+  // Effective property tax rate by state (% of home value, annual)
+  // Sourced from typical effective rates per state — used to auto-fill the tax field
+  const stateTaxRates = {
+    AL: 0.41, AK: 1.19, AZ: 0.66, AR: 0.62, CA: 0.75, CO: 0.55, CT: 2.14,
+    DE: 0.61, FL: 0.91, GA: 0.92, HI: 0.32, ID: 0.69, IL: 2.27, IN: 0.85,
+    IA: 1.57, KS: 1.41, KY: 0.86, LA: 0.55, ME: 1.36, MD: 1.09, MA: 1.23,
+    MI: 1.54, MN: 1.12, MS: 0.81, MO: 0.97, MT: 0.84, NE: 1.73, NV: 0.60,
+    NH: 2.18, NJ: 2.49, NM: 0.80, NY: 1.72, NC: 0.84, ND: 0.98, OH: 1.62,
+    OK: 0.90, OR: 0.97, PA: 1.58, RI: 1.63, SC: 0.57, SD: 1.31, TN: 0.71,
+    TX: 1.80, UT: 0.63, VT: 1.90, VA: 0.82, WA: 0.98, WV: 0.58, WI: 1.85,
+    WY: 0.61, DC: 0.56,
   };
 
   // Cities by state for rental calculator
@@ -1826,6 +1942,23 @@ function MortgagePage() {
         <td style="color:var(--muted);">${money(r.cumulativeInterest)}</td>
       </tr>
     `).join("");
+
+    // Track calculator run for agent analytics (fire-and-forget)
+    if (authToken && homePrice > 0) {
+      const params = new URLSearchParams(location.hash.split("?")[1] || "");
+      fetch("/api/agent/calculator-runs/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+        body: JSON.stringify({
+          listing_id: params.get("listing") || null,
+          purchase_price: homePrice,
+          down_payment: downPayment,
+          term_years: termYears,
+          interest_rate: rate,
+          monthly_payment: monthly.totalMonthly,
+        })
+      }).catch(() => {});
+    }
   };
 
   // State selector - auto-fill interest rate
@@ -2176,10 +2309,30 @@ function MortgagePage() {
     const params = new URLSearchParams(hash.slice(qIndex + 1));
     const kind = (params.get("kind") || "").toLowerCase();
     const listingPrice = Number(params.get("price"));
+    const stateParam = (params.get("state") || "").toUpperCase();
+    const cityParam = params.get("city") || "";
 
     if (kind === "rental") {
       if (Number.isFinite(listingPrice) && listingPrice > 0) {
         el.querySelector("#monthlyRent").value = Math.round(listingPrice);
+      }
+      // Auto-select state in rental calculator
+      const rentalStateSelect = el.querySelector("#rentalState");
+      if (rentalStateSelect && stateParam) {
+        rentalStateSelect.value = stateParam;
+        rentalStateSelect.dispatchEvent(new Event("change"));
+        // Auto-select city after state loads cities
+        setTimeout(() => {
+          const rentalCitySelect = el.querySelector("#rentalCity");
+          if (rentalCitySelect && cityParam) {
+            const cityOptions = [...rentalCitySelect.options];
+            const match = cityOptions.find(o => o.value.toLowerCase() === cityParam.toLowerCase());
+            if (match) {
+              rentalCitySelect.value = match.value;
+              rentalCitySelect.dispatchEvent(new Event("change"));
+            }
+          }
+        }, 50);
       }
       switchCalculator("rental");
       calcRental();
@@ -2189,6 +2342,22 @@ function MortgagePage() {
     if (kind === "sale" || kind === "mortgage") {
       if (Number.isFinite(listingPrice) && listingPrice > 0) {
         el.querySelector("#homePrice").value = Math.round(listingPrice);
+      }
+      // Auto-select state to fill in interest rate
+      const stateSelect = el.querySelector("#stateSelect");
+      if (stateSelect && stateParam && stateRates[stateParam]) {
+        stateSelect.value = stateParam;
+        el.querySelector("#rate").value = stateRates[stateParam].rate;
+      }
+      // Auto-fill annual property tax based on state's effective tax rate × price
+      if (Number.isFinite(listingPrice) && listingPrice > 0) {
+        const taxInput = el.querySelector("#tax");
+        if (taxInput) {
+          const taxRate = (stateParam && stateTaxRates[stateParam] != null)
+            ? stateTaxRates[stateParam]
+            : 1.10;
+          taxInput.value = Math.round(listingPrice * taxRate / 100);
+        }
       }
       switchCalculator("mortgage");
       calc();
@@ -2220,9 +2389,37 @@ function ListingDetailPage(id) {
       const calculatorQuery = new URLSearchParams({
         kind: isRent ? "rental" : "sale",
         price: String(l.price || ""),
-        listingId: String(l.id || "")
+        listingId: String(l.id || ""),
+        state: l.state || "",
+        city: l.city || ""
       });
       const calculatorHref = `#/mortgage?${calculatorQuery.toString()}`;
+
+      // Computed property details
+      const pricePerSqft = l.sqft ? Math.round(l.price / l.sqft) : null;
+      const propertyAge = l.year_built ? (new Date().getFullYear() - l.year_built) : null;
+      const isCondo = (l.type || "").toLowerCase().includes("condo");
+      const isTownhouse = (l.type || "").toLowerCase().includes("townhouse");
+      const isHouse = !isCondo && !isTownhouse;
+      const estimatedHOA = isCondo ? Math.round(l.price * 0.003) : isTownhouse ? Math.round(l.price * 0.0015) : 0;
+      const estimatedTax = isRent ? 0 : Math.round(l.price * 0.012 / 12);
+      const lotSize = isHouse && l.sqft ? (l.sqft * (1.5 + Math.random())).toFixed(0) : null;
+      const parking = isCondo ? "1 Reserved Space" : isTownhouse ? "1-Car Garage" : "2-Car Garage";
+      const flooring = propertyAge && propertyAge > 30 ? "Original Hardwood" : "Engineered Hardwood";
+      const heating = l.state && ["FL","HI","CA","AZ","TX","LA","GA","SC"].includes(l.state) ? "Central A/C, Heat Pump" : "Forced Air, Central A/C";
+
+      // Generate key features based on listing attributes
+      const features = [];
+      if (l.year_built && l.year_built >= 2018) features.push("Modern Construction");
+      if (l.year_built && l.year_built < 1950) features.push("Historic Character");
+      if (l.sqft && l.sqft >= 2000) features.push("Spacious Layout");
+      if (l.bathrooms >= 3) features.push("Ensuite Primary Bath");
+      if (l.bedrooms >= 4) features.push("Multi-Room Flexibility");
+      if (isCondo) features.push("Building Amenities");
+      if (isHouse) features.push("Private Yard");
+      if (isTownhouse) features.push("Low Maintenance");
+      features.push("Updated Kitchen", "Natural Light");
+      if (!isRent) features.push("Good Resale Potential");
 
       el.innerHTML = `
         <a href="#/${isRent ? 'rentals' : 'sales'}" class="back-link">← Back to ${isRent ? 'Rentals' : 'Sales'}</a>
@@ -2236,7 +2433,11 @@ function ListingDetailPage(id) {
 
         <div class="detail-content">
           <div class="detail-main">
-            <h1 class="detail-price">${money(l.price, isRent)}</h1>
+            <h1 class="detail-price">
+              ${money(l.price, isRent)}
+              ${l.original_price && l.original_price !== l.price ? `<span style="text-decoration:line-through;opacity:0.45;font-size:0.6em;margin-left:12px;">${money(l.original_price, isRent)}</span>` : ""}
+            </h1>
+            ${l.discount ? `<div style="display:inline-block;background:#ef4444;color:#fff;padding:4px 12px;border-radius:4px;font-size:0.8rem;font-weight:600;margin-bottom:8px;">PRICE REDUCED — ${l.discount.type === 'percent' ? l.discount.amount + '% off' : '$' + l.discount.amount.toLocaleString() + ' off'}</div>` : ""}
             <div class="detail-location">
               <span class="location-icon">📍</span>
               ${l.address ? l.address + ', ' : ''}${l.city}${l.state ? ', ' + l.state : ''}
@@ -2259,6 +2460,10 @@ function ListingDetailPage(id) {
                 <div class="detail-stat__value">${l.year_built}</div>
                 <div class="detail-stat__label">Year Built</div>
               </div>` : ''}
+              ${pricePerSqft ? `<div class="detail-stat">
+                <div class="detail-stat__value">$${pricePerSqft}</div>
+                <div class="detail-stat__label">${isRent ? '/ Sq Ft' : 'Per Sq Ft'}</div>
+              </div>` : ''}
             </div>
 
             ${l.description ? `
@@ -2266,6 +2471,53 @@ function ListingDetailPage(id) {
               <h3 class="detail-section__title">Description</h3>
               <p class="detail-section__text">${l.description}</p>
             </div>` : ''}
+
+            <div class="detail-section">
+              <h3 class="detail-section__title">Key Features</h3>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                ${features.map(f => `<span style="background:rgba(99,102,241,.1);color:var(--accent,#6366f1);padding:6px 14px;border-radius:20px;font-size:0.82rem;font-weight:500;">${f}</span>`).join("")}
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <h3 class="detail-section__title">Property Details</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-top:10px;font-size:0.9rem;">
+                ${kv('Property Type', l.type)}
+                ${kv('Bedrooms', l.bedrooms)}
+                ${kv('Bathrooms', l.bathrooms)}
+                ${l.sqft ? kv('Living Area', l.sqft.toLocaleString() + ' sq ft') : ''}
+                ${lotSize ? kv('Lot Size', Number(lotSize).toLocaleString() + ' sq ft') : ''}
+                ${l.year_built ? kv('Year Built', l.year_built) : ''}
+                ${propertyAge !== null ? kv('Property Age', propertyAge + (propertyAge === 1 ? ' year' : ' years')) : ''}
+                ${kv('Parking', parking)}
+                ${kv('Flooring', flooring)}
+                ${kv('Heating / Cooling', heating)}
+                ${pricePerSqft && !isRent ? kv('Price / Sq Ft', '$' + pricePerSqft) : ''}
+                ${kv('Status', cap(l.status))}
+              </div>
+            </div>
+
+            ${!isRent ? `
+            <div class="detail-section">
+              <h3 class="detail-section__title">Cost Estimates</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-top:10px;font-size:0.9rem;">
+                ${estimatedTax ? kv('Est. Monthly Tax', '$' + estimatedTax.toLocaleString()) : ''}
+                ${estimatedHOA ? kv('Est. HOA / Month', '$' + estimatedHOA.toLocaleString()) : kv('HOA', 'None')}
+                ${kv('Insurance (est.)', '$' + Math.round(l.price * 0.004 / 12).toLocaleString() + '/mo')}
+              </div>
+              <p style="font-size:0.78rem;opacity:0.6;margin-top:8px;">* Estimates only. Actual amounts may vary based on lender, insurer, and local assessor.</p>
+            </div>` : `
+            <div class="detail-section">
+              <h3 class="detail-section__title">Rental Details</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-top:10px;font-size:0.9rem;">
+                ${kv('Monthly Rent', '$' + l.price.toLocaleString())}
+                ${kv('Security Deposit', '$' + l.price.toLocaleString() + ' (est.)')}
+                ${kv('Lease Term', '12 months')}
+                ${kv('Pets', 'Contact agent')}
+                ${kv('Utilities', 'Tenant responsible')}
+                ${estimatedHOA ? kv('HOA Included', 'Yes') : ''}
+              </div>
+            </div>`}
           </div>
 
           <div class="detail-sidebar">
@@ -2278,11 +2530,14 @@ function ListingDetailPage(id) {
                 ${isRent ? '🔑 Rental Calculator' : '🏦 Mortgage Calculator'}
               </a>
               ${currentUser ? `
-              <button class="btn" style="display:block;width:100%;text-align:center;margin-top:8px;box-sizing:border-box;" onclick="location.hash='#/subscription'">
-                📞 Contact an Agent
+              <button class="btn" id="chatWithAgentBtn" data-listing="${l.id}" style="display:block;width:100%;text-align:center;margin-top:8px;box-sizing:border-box;">
+                💬 Chat with Agent
+              </button>
+              <button class="btn" id="bookViewingBtn" data-listing="${l.id}" style="display:block;width:100%;text-align:center;margin-top:8px;box-sizing:border-box;">
+                📅 Schedule Viewing
               </button>` : `
               <a class="btn" href="#/auth" style="display:block;width:100%;text-align:center;margin-top:8px;box-sizing:border-box;">
-                Login to Contact Agent
+                Login to Chat or Book a Viewing
               </a>`}
             </div></div>
 
@@ -2295,11 +2550,38 @@ function ListingDetailPage(id) {
                 ${kv('Baths', l.bathrooms)}
                 ${l.sqft ? kv('Sq Ft', l.sqft.toLocaleString()) : ''}
                 ${l.year_built ? kv('Built', l.year_built) : ''}
+                ${pricePerSqft ? kv(isRent ? 'Rent/SqFt' : '$/SqFt', '$' + pricePerSqft) : ''}
               </div>
             </div></div>
+
+            ${!isRent && l.sqft ? `
+            <div class="card" style="margin-top:12px;"><div class="card__body">
+              <div class="card__title">Monthly Cost Snapshot</div>
+              <div style="display:grid;gap:6px;margin-top:10px;">
+                ${kv('Mortgage (est.)', '$' + Math.round(l.price * 0.005).toLocaleString())}
+                ${kv('Property Tax', '$' + estimatedTax.toLocaleString())}
+                ${kv('Insurance', '$' + Math.round(l.price * 0.004 / 12).toLocaleString())}
+                ${estimatedHOA ? kv('HOA', '$' + estimatedHOA.toLocaleString()) : ''}
+                <div style="border-top:1px solid rgba(150,150,150,.2);padding-top:6px;margin-top:4px;">
+                  ${kv('<b>Total (est.)</b>', '<b>$' + (Math.round(l.price * 0.005) + estimatedTax + Math.round(l.price * 0.004 / 12) + estimatedHOA).toLocaleString() + '/mo</b>')}
+                </div>
+              </div>
+              <a href="${calculatorHref}" style="display:block;text-align:center;margin-top:10px;font-size:0.82rem;color:var(--accent,#6366f1);">Get exact numbers →</a>
+            </div></div>` : ''}
           </div>
         </div>
       `;
+
+      const chatBtn = el.querySelector("#chatWithAgentBtn");
+      if (chatBtn) {
+        chatBtn.addEventListener("click", () => {
+          location.hash = `#/agent-chat?listing=${encodeURIComponent(chatBtn.dataset.listing || "")}`;
+        });
+      }
+      const bookBtn = el.querySelector("#bookViewingBtn");
+      if (bookBtn) {
+        bookBtn.addEventListener("click", () => showBookAppointmentModal(bookBtn.dataset.listing));
+      }
     } catch (err) {
       el.innerHTML = `
         <div class="card"><div class="card__body">
@@ -2311,6 +2593,159 @@ function ListingDetailPage(id) {
     }
   })();
 
+  return el;
+}
+
+/** Book a property viewing — appears on agent calendar */
+function showBookAppointmentModal(listingId) {
+  if (!currentUser) {
+    location.hash = "#/auth";
+    return;
+  }
+
+  const existing = document.getElementById("bookApptModal");
+  if (existing) existing.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "bookApptModal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
+  modal.innerHTML = `
+    <div class="card" style="max-width:420px;width:100%;">
+      <div class="card__body">
+        <h3 class="card__title">Schedule a Viewing</h3>
+        <p class="card__muted" style="margin-bottom:14px;">Pick a date and time. Your request will appear on the agent's calendar.</p>
+        <form id="bookApptForm" style="display:grid;gap:10px;">
+          <div class="field"><label>Date</label><input type="date" id="bookApptDate" required /></div>
+          <div class="field"><label>Time</label><input type="time" id="bookApptTime" required /></div>
+          <div class="field"><label>Notes (optional)</label><textarea id="bookApptNotes" rows="2" placeholder="Any questions for the agent?"></textarea></div>
+          <input type="hidden" id="bookApptListing" value="${listingId || ""}" />
+          <div style="display:flex;gap:8px;">
+            <button type="submit" class="btn btn--primary">Request Viewing</button>
+            <button type="button" class="btn" id="bookApptCancel">Cancel</button>
+          </div>
+        </form>
+        <div id="bookApptResult" style="margin-top:10px;"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  modal.querySelector("#bookApptDate").min = tomorrow.toISOString().slice(0, 10);
+
+  modal.querySelector("#bookApptCancel").addEventListener("click", () => modal.remove());
+  modal.querySelector("#bookApptForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const resultEl = modal.querySelector("#bookApptResult");
+    try {
+      const res = await apiFetch("/api/appointments", {
+        method: "POST",
+        body: JSON.stringify({
+          date: modal.querySelector("#bookApptDate").value,
+          time: modal.querySelector("#bookApptTime").value,
+          listing_id: modal.querySelector("#bookApptListing").value || null,
+          notes: modal.querySelector("#bookApptNotes").value.trim() || null,
+        }),
+      });
+      resultEl.innerHTML = `<div class="notice" style="background:rgba(16,185,129,.12);color:#059669;">${res.message || "Viewing requested!"}</div>`;
+      setTimeout(() => modal.remove(), 2000);
+    } catch (err) {
+      resultEl.innerHTML = `<div class="notice" style="background:rgba(239,68,68,.1);color:#b91c1c;">${err.message}</div>`;
+    }
+  });
+}
+
+/** Direct chat with a human agent (not the AI widget) */
+function AgentChatPage() {
+  const el = document.createElement("div");
+  el.className = "agent-chat-page";
+  const qs = new URLSearchParams((location.hash.split("?")[1] || ""));
+  const listingId = qs.get("listing") || "";
+
+  el.innerHTML = `
+    <div class="card" style="max-width:720px;margin:0 auto;">
+      <div class="card__body">
+        <a href="#/" class="back-link">← Back</a>
+        <h1 style="margin:8px 0 4px;">Chat with an Agent</h1>
+        <p class="card__muted" style="margin-bottom:16px;">Message a real OwnIt agent. Replies appear here — not from the AI assistant.</p>
+        <div id="humanChatMessages" class="human-chat-messages">Loading...</div>
+        <div id="humanChatInputRow" style="display:none;gap:8px;margin-top:12px;">
+          <input type="text" id="humanChatInput" class="chat-input" style="flex:1;" placeholder="Type your message..." />
+          <button type="button" id="humanChatSend" class="btn btn--primary">Send</button>
+        </div>
+        <div id="humanChatStatus" style="margin-top:10px;"></div>
+      </div>
+    </div>`;
+
+  let humanMessages = [];
+
+  async function loadHumanChat() {
+    const msgEl = el.querySelector("#humanChatMessages");
+    const inputRow = el.querySelector("#humanChatInputRow");
+    const statusEl = el.querySelector("#humanChatStatus");
+
+    if (!currentUser) {
+      msgEl.innerHTML = `<p>Please <a href="#/auth">log in</a> to chat with an agent.</p>`;
+      return;
+    }
+
+    try {
+      const data = await apiFetch("/api/human-chat/session");
+      if (!data.hasAccess) {
+        msgEl.innerHTML = `<p>${data.message || "Subscription required."}</p>
+          <a class="btn btn--primary" href="#/subscription" style="margin-top:12px;display:inline-block;">View Plans</a>`;
+        return;
+      }
+
+      humanMessages = data.messages || [];
+      renderHumanMessages();
+      inputRow.style.display = "flex";
+    } catch (err) {
+      msgEl.innerHTML = `<p style="color:#ef4444;">${err.message}</p>`;
+    }
+  }
+
+  function renderHumanMessages() {
+    const msgEl = el.querySelector("#humanChatMessages");
+    if (humanMessages.length === 0) {
+      msgEl.innerHTML = "<p class='card__muted'>No messages yet. Say hello!</p>";
+      return;
+    }
+    msgEl.innerHTML = humanMessages.map(m => `
+      <div class="human-chat-msg human-chat-msg--${m.role === "user" ? "user" : "agent"}">
+        <div class="human-chat-msg__label">${m.role === "user" ? "You" : "Agent"}</div>
+        <div>${m.content.replace(/</g, "&lt;")}</div>
+      </div>`).join("");
+    msgEl.scrollTop = msgEl.scrollHeight;
+  }
+
+  async function sendHumanMessage() {
+    const input = el.querySelector("#humanChatInput");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    humanMessages.push({ role: "user", content: text });
+    renderHumanMessages();
+
+    try {
+      await apiFetch("/api/human-chat/message", {
+        method: "POST",
+        body: JSON.stringify({ message: text, listing_id: listingId || null }),
+      });
+      el.querySelector("#humanChatStatus").innerHTML =
+        `<span class="card__muted" style="font-size:13px;">Sent — an agent will reply in this thread.</span>`;
+    } catch (err) {
+      el.querySelector("#humanChatStatus").innerHTML =
+        `<span style="color:#ef4444;font-size:13px;">${err.message}</span>`;
+    }
+  }
+
+  el.querySelector("#humanChatSend").addEventListener("click", sendHumanMessage);
+  el.querySelector("#humanChatInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendHumanMessage();
+  });
+
+  loadHumanChat();
   return el;
 }
 
@@ -2403,24 +2838,22 @@ function SubscriptionPage() {
       </div>
     </div>
 
-    <!-- Contact Agent (UC20) -->
+    <!-- Chat with Agent -->
     <div class="sub-section">
-      <div class="sub-section__title"> Contact a Real Estate Agent</div>
+      <div class="sub-section__title">Chat with an Agent</div>
       <div class="card"><div class="card__body">
-        <div class="card__muted" style="margin-bottom:12px;">Need expert help? Submit a request and a licensed agent will reach out to you.</div>
-        <form id="agentForm" style="display:grid;gap:12px;">
-          <div class="field">
-            <label>Your Message (optional)</label>
-            <textarea id="agentMessage" rows="3" placeholder="I'm looking for a 3-bedroom home in New Jersey..."></textarea>
-          </div>
-          <button class="btn btn--primary" type="submit">Submit Agent Request</button>
-        </form>
-        <div id="agentResult" style="margin-top:12px;"></div>
+        <div class="card__muted" style="margin-bottom:12px;">Talk directly with a licensed agent in real time. Your messages appear in the agent portal — not the AI chatbot.</div>
+        <a class="btn btn--primary" href="#/agent-chat">Open Agent Chat →</a>
+      </div></div>
+    </div>
 
-        <div style="margin-top:20px;">
-          <div class="sub-section__title" style="font-size:14px;">Previous Requests</div>
-          <div id="agentRequestsList" class="notice">Loading...</div>
-        </div>
+    <!-- Schedule Viewing -->
+    <div class="sub-section">
+      <div class="sub-section__title">Schedule a Viewing</div>
+      <div class="card"><div class="card__body">
+        <div class="card__muted" style="margin-bottom:12px;">Request a property tour. The agent will see it on their Appointments calendar.</div>
+        <button type="button" class="btn btn--primary" id="subBookApptBtn">Book an Appointment</button>
+        <div id="myAppointmentsList" style="margin-top:16px;" class="notice">Loading your appointments...</div>
       </div></div>
     </div>
 
@@ -2573,16 +3006,19 @@ function SubscriptionPage() {
     }
   }
 
-  // UC14: Add payment method
+  // UC14: Add payment method (demo/fake — nothing is stored)
   el.querySelector("#addPaymentBtn").addEventListener("click", async () => {
     if (!subData?.plan_id) {
       showMsg("Select a subscription plan first.", "error");
       return;
     }
 
-    const cc = el.querySelector("#cardNumber").value.replace(/\s/g, '');
-    const exp = el.querySelector("#cardExpiry").value;
-    const cvv = el.querySelector("#cardCvv").value;
+    const ccInput = el.querySelector("#cardNumber");
+    const expInput = el.querySelector("#cardExpiry");
+    const cvvInput = el.querySelector("#cardCvv");
+    const cc = ccInput.value.replace(/\s/g, '');
+    const exp = expInput.value;
+    const cvv = cvvInput.value;
 
     if (cc.length < 15 || exp.length < 4 || cvv.length < 3) {
       showMsg("Please enter a realistic fake card number, expiry, and CVV.", "error");
@@ -2594,6 +3030,22 @@ function SubscriptionPage() {
         method: "POST",
         body: JSON.stringify({ paymentDetails: { simulated: true } })
       });
+      // Show visual confirmation with masked card
+      const maskedCard = "•••• •••• •••• " + cc.slice(-4);
+      paymentFormEl.innerHTML = `
+        <div style="padding:18px;background:linear-gradient(135deg,#1e293b 0%,#334155 100%);border-radius:12px;color:#fff;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;right:0;width:80px;height:80px;background:rgba(255,255,255,0.05);border-radius:0 0 0 100%;"></div>
+          <div style="font-size:11px;letter-spacing:2px;opacity:0.7;margin-bottom:14px;">DEMO CARD</div>
+          <div style="font-size:1.2rem;letter-spacing:3px;font-family:monospace;margin-bottom:12px;">${maskedCard}</div>
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;opacity:0.8;">
+            <span>EXP ${exp}</span>
+            <span>VISA</span>
+          </div>
+        </div>
+        <div style="margin-top:10px;font-size:0.82rem;color:var(--muted);">
+          ✅ Payment method accepted (demo only — nothing stored). Click <b>Activate Subscription</b> below.
+        </div>
+      `;
       showMsg("Payment method added! Click Activate Subscription in Actions.");
       await loadSubscriptionStatus();
     } catch (err) {
@@ -2604,8 +3056,33 @@ function SubscriptionPage() {
   // UC15: Activate subscription
   activateBtn.addEventListener("click", async () => {
     try {
-      await apiFetch("/api/subscriptions/activate", { method: "POST" });
+      const result = await apiFetch("/api/subscriptions/activate", { method: "POST" });
+      const isPro = subData?.plan_name?.toLowerCase().includes("pro");
+      const featuresHtml = isPro
+        ? `<div style="margin-top:12px;padding:16px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;">
+            <div style="font-weight:700;margin-bottom:8px;color:#059669;">🎉 Pro Subscription Activated!</div>
+            <ul style="margin:0;padding-left:18px;font-size:0.88rem;line-height:1.8;">
+              <li>✅ Advanced property search filters</li>
+              <li>✅ Unlimited saved properties</li>
+              <li>✅ Unlimited AI assistant chat access</li>
+              <li>✅ Priority support</li>
+              <li>✅ Market trend analytics</li>
+              <li>✅ Property valuation insights</li>
+            </ul>
+          </div>`
+        : `<div style="margin-top:12px;padding:16px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;">
+            <div style="font-weight:700;margin-bottom:8px;color:#059669;">🎉 Basic Subscription Activated!</div>
+            <ul style="margin:0;padding-left:18px;font-size:0.88rem;line-height:1.8;">
+              <li>✅ Basic property search</li>
+              <li>✅ 5 saved properties</li>
+              <li>✅ Email support</li>
+              <li>✅ AI chat access (limited)</li>
+            </ul>
+            <div style="margin-top:10px;font-size:0.82rem;opacity:0.7;">Upgrade to <b>Pro</b> for unlimited saves, priority support & full AI access.</div>
+          </div>`;
       showMsg("Subscription activated! 🎉");
+      const msgEl = el.querySelector("#subMsg");
+      if (msgEl) msgEl.insertAdjacentHTML("afterend", featuresHtml);
       await loadSubscriptionStatus();
       await loadPlans();
     } catch (err) {
@@ -2639,45 +3116,25 @@ function SubscriptionPage() {
     }
   });
 
-  // UC20: Contact agent
-  el.querySelector("#agentForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const message = el.querySelector("#agentMessage").value.trim();
-    const resultEl = el.querySelector("#agentResult");
-    try {
-      const res = await apiFetch("/api/subscriptions/contact-agent", {
-        method: "POST",
-        body: JSON.stringify({ message: message || undefined })
-      });
-      resultEl.innerHTML = `<div class="notice" style="background:rgba(16,185,129,.12);color:#059669;border:1px solid rgba(16,185,129,.2);"> ${res.message}</div>`;
-      el.querySelector("#agentMessage").value = "";
-      loadAgentRequests();
-    } catch (err) {
-      resultEl.innerHTML = `<div class="notice" style="color:var(--danger);">${err.message}</div>`;
-    }
-  });
+  el.querySelector("#subBookApptBtn").addEventListener("click", () => showBookAppointmentModal(null));
 
-  // Load past agent requests
-  async function loadAgentRequests() {
-    const listEl = el.querySelector("#agentRequestsList");
+  async function loadMyAppointments() {
+    const listEl = el.querySelector("#myAppointmentsList");
     try {
-      const data = await apiFetch("/api/subscriptions/agent-requests");
-      const reqs = data.requests || [];
-      if (reqs.length === 0) {
-        listEl.innerHTML = `<div class="card__muted">No previous requests.</div>`;
+      const data = await apiFetch("/api/appointments");
+      const appts = data.appointments || [];
+      if (appts.length === 0) {
+        listEl.innerHTML = `<div class="card__muted">No appointments booked yet.</div>`;
         return;
       }
-      listEl.innerHTML = reqs.map(r => `
-        <div class="notice" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <div>
-            <div style="font-size:13px;color:var(--muted);">${new Date(r.created_at).toLocaleString()}</div>
-            <div>${r.message || 'No message provided'}</div>
-          </div>
-          <span class="pill" style="font-size:11px;">${cap(r.status)}</span>
-        </div>
-      `).join('');
+      listEl.innerHTML = appts.map(a => `
+        <div class="notice" style="margin-bottom:8px;">
+          <strong>${a.date}</strong> ${a.time ? "at " + a.time : ""}
+          ${a.listing_id ? `<span class="card__muted"> · Listing ${a.listing_id}</span>` : ""}
+          <span class="pill" style="font-size:11px;margin-left:6px;">${cap(a.status)}</span>
+        </div>`).join("");
     } catch (err) {
-      listEl.innerHTML = `<div class="card__muted">Could not load requests.</div>`;
+      listEl.innerHTML = `<div class="card__muted">Could not load appointments: ${err.message}</div>`;
     }
   }
 
@@ -2685,7 +3142,7 @@ function SubscriptionPage() {
   (async () => {
     await loadSubscriptionStatus();
     await loadPlans();
-    await loadAgentRequests();
+    await loadMyAppointments();
   })();
 
   return el;

@@ -144,7 +144,7 @@ async function hasPaidSubscription(userId) {
 
 async function checkChatAccess(userId) {
   const session = await mongo.chat_sessions().findOne(
-    { user_id: userId },
+    { user_id: userId, $or: [{ session_type: "ai" }, { session_type: { $exists: false } }] },
     { sort: { started_at: -1 } }
   );
 
@@ -181,6 +181,7 @@ router.get("/session", authenticateToken, async (req, res) => {
 
       const result = await mongo.chat_sessions().insertOne({
         user_id: req.user.id,
+        session_type: "ai",
         started_at: new Date().toISOString(),
         free_access_ends: freeAccessEnds.toISOString(),
         total_messages: 0,
@@ -252,6 +253,7 @@ router.post("/message", authenticateToken, async (req, res) => {
 
       const result = await mongo.chat_sessions().insertOne({
         user_id: req.user.id,
+        session_type: "ai",
         started_at: new Date().toISOString(),
         free_access_ends: freeAccessEnds.toISOString(),
         total_messages: 0,
@@ -267,6 +269,19 @@ router.post("/message", authenticateToken, async (req, res) => {
       .project({ role: 1, content: 1 })
       .toArray();
     history.reverse(); // oldest first for the API
+
+    // Auto-create lead if this is the user's first message
+    const existingLead = await mongo.leads().findOne({ user_id: req.user.id });
+    if (!existingLead) {
+      await mongo.leads().insertOne({
+        user_id: req.user.id,
+        user_name: req.user.name || "Unknown",
+        user_email: req.user.email || "",
+        source_listing_id: req.body.listing_id || null,
+        stage: "new",
+        created_at: new Date().toISOString(),
+      });
+    }
 
     // Save user message first
     await mongo.chat_messages().insertOne({

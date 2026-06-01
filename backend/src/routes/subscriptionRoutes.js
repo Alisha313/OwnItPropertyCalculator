@@ -434,6 +434,19 @@ router.post("/contact-agent", authenticateToken, async (req, res) => {
       created_at: new Date().toISOString()
     });
 
+    // Also create a lead so the agent portal picks it up
+    const existingLead = await mongo.leads().findOne({ user_id: req.user.id });
+    if (!existingLead) {
+      await mongo.leads().insertOne({
+        user_id: req.user.id,
+        user_name: req.user.name || "Unknown",
+        user_email: req.user.email || "",
+        source_listing_id: null,
+        stage: "new",
+        created_at: new Date().toISOString(),
+      });
+    }
+
     res.json({
       ok: true,
       message: "Your request has been submitted. An agent will contact you soon!",

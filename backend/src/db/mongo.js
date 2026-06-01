@@ -72,6 +72,18 @@ async function createIndexes() {
   
   // Saved properties — scoped per user
   await db.collection("saved_properties").createIndex({ user_id: 1 });
+
+  // Agent portal collections
+  await db.collection("leads").createIndex({ stage: 1 });
+  await db.collection("leads").createIndex({ user_id: 1 });
+  await db.collection("leads").createIndex({ created_at: -1 });
+  await db.collection("appointments").createIndex({ agent_id: 1 });
+  await db.collection("appointments").createIndex({ date: 1 });
+  await db.collection("agent_notes").createIndex({ lead_id: 1 });
+  await db.collection("discounts").createIndex({ listing_id: 1 });
+  await db.collection("discounts").createIndex({ expires_at: 1 });
+  await db.collection("calculator_runs").createIndex({ user_id: 1 });
+  await db.collection("calculator_runs").createIndex({ listing_id: 1 });
   
   console.log("MongoDB indexes created");
 }
@@ -115,6 +127,14 @@ export const mongo = {
   chat_messages: () => getDb().collection("chat_messages"),
   market_trends: () => getDb().collection("market_trends"),
   saved_properties: () => getDb().collection("saved_properties"),
+  leads: () => getDb().collection("leads"),
+  appointments: () => getDb().collection("appointments"),
+  agent_notes: () => getDb().collection("agent_notes"),
+  discounts: () => getDb().collection("discounts"),
+  calculator_runs: () => getDb().collection("calculator_runs"),
+  documents: () => getDb().collection("documents"),
+  open_houses: () => getDb().collection("open_houses"),
+  commissions: () => getDb().collection("commissions"),
 };
 
 // Seed data for initial population

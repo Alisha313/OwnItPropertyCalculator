@@ -17,6 +17,18 @@ import listingRoutes from "./routes/listingRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import agentLeadRoutes from "./routes/agent/leadRoutes.js";
+import agentListingRoutes from "./routes/agent/listingMgmtRoutes.js";
+import agentDiscountRoutes from "./routes/agent/discountRoutes.js";
+import agentChatRoutes from "./routes/agent/chatRoutes.js";
+import agentAppointmentRoutes from "./routes/agent/appointmentRoutes.js";
+import agentAnalyticsRoutes from "./routes/agent/analyticsRoutes.js";
+import agentCalculatorRoutes from "./routes/agent/calculatorRoutes.js";
+import agentDocumentRoutes from "./routes/agent/documentRoutes.js";
+import agentOpenHouseRoutes from "./routes/agent/openHouseRoutes.js";
+import agentCommissionRoutes from "./routes/agent/commissionRoutes.js";
+import appointmentRoutes from "./routes/appointmentRoutes.js";
+import humanChatRoutes from "./routes/humanChatRoutes.js";
 
 // Resolve __dirname in ES Module scope (not available natively)
 const __filename = fileURLToPath(import.meta.url);
@@ -65,11 +77,33 @@ app.use("/api/auth", authRoutes);                   // User registration, login,
 app.use("/api/listings", listingRoutes);            // Property listings (sales & rentals)
 app.use("/api/subscriptions", subscriptionRoutes);  // Subscription plans and status
 app.use("/api/chat", chatRoutes);                   // AI chat sessions and messages
+app.use("/api/human-chat", humanChatRoutes);        // Direct chat with human agents
+app.use("/api/appointments", appointmentRoutes);  // Customer viewing requests
 app.use("/api/ai", aiRoutes);                       // AI-powered property valuation
+
+// ── Agent Portal API Routes ──────────────────────────────────────────────────
+app.use("/api/agent/leads", agentLeadRoutes);
+app.use("/api/agent/listings", agentListingRoutes);
+app.use("/api/agent/discounts", agentDiscountRoutes);
+app.use("/api/agent/chats", agentChatRoutes);
+app.use("/api/agent/appointments", agentAppointmentRoutes);
+app.use("/api/agent/analytics", agentAnalyticsRoutes);
+app.use("/api/agent/calculator-runs", agentCalculatorRoutes);
+app.use("/api/agent/documents", agentDocumentRoutes);
+app.use("/api/agent/open-houses", agentOpenHouseRoutes);
+app.use("/api/agent/commissions", agentCommissionRoutes);
 
 // ── Health Check ─────────────────────────────────────────────────────────────
 // Used by load balancers and uptime monitors to verify the server is responsive
 app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+// ── Agent Portal ─────────────────────────────────────────────────────────────
+const agentHtml = path.join(repoRoot, "agent.html");
+
+if (!isLambda) {
+  app.get("/agent", (req, res) => res.sendFile(agentHtml));
+  app.get("/agent/*", (req, res) => res.sendFile(agentHtml));
+}
 
 // ── SPA Fallback (local dev only) ────────────────────────────────────────────
 // Serve index.html for any unmatched route so the client-side router handles it

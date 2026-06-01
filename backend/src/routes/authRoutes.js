@@ -39,13 +39,13 @@ async function ensureInitialized() {
 
 /**
  * Generates a signed JWT for the given user.
- * The token expires after 30 days and encodes the user's id, email, and name.
- * @param {{ _id: ObjectId, email: string, name: string }} user
+ * The token expires after 30 days and encodes the user's id, email, name, and role.
+ * @param {{ _id: ObjectId, email: string, name: string, role?: string }} user
  * @returns {string} Signed JWT string.
  */
 function generateToken(user) {
   return jwt.sign(
-    { id: user._id.toString(), email: user.email, name: user.name },
+    { id: user._id.toString(), email: user.email, name: user.name, role: user.role || "user" },
     JWT_SECRET,
     { expiresIn: "30d" }
   );
@@ -133,10 +133,13 @@ router.post("/register", async (req, res) => {
 
     const hash = bcrypt.hashSync(password, 10);
 
+    const role = req.body.role === "agent" ? "agent" : "user";
+
     const result = await mongo.users().insertOne({
       name,
       email,
       password_hash: hash,
+      role,
       created_at: new Date().toISOString()
     });
 
@@ -180,13 +183,13 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    const token = generateToken({ _id: userId, name, email });
+    const token = generateToken({ _id: userId, name, email, role });
     const subscription = await loadSubscriptionSnapshot(userId);
 
     res.json({
       ok: true,
       token,
-      user: { id: userId.toString(), name, email },
+      user: { id: userId.toString(), name, email, role },
       subscription,
       trial: {
         started: true,
@@ -225,7 +228,7 @@ router.post("/login", async (req, res) => {
     res.json({ 
       ok: true, 
       token,
-      user: { id: user._id.toString(), name: user.name, email: user.email },
+      user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role || "user" },
       subscription
     });
   } catch (error) {
@@ -250,7 +253,7 @@ router.get("/me", authenticateToken, async (req, res) => {
   }
   
   res.json({ 
-    user: req.user,
+    user: { ...req.user, role: req.user.role || "user" },
     subscription: req.subscription || null
   });
 });

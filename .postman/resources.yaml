@@ -1,0 +1,7 @@
+# Use this workspace to collaborate
+workspace:
+  id: b9e1cff1-a28b-46d7-8786-5af1d0d7cef1
+
+localResources:
+  docs:
+    - ../CODE_REVIEW.md
