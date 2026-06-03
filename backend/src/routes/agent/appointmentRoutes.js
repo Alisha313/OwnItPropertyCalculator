@@ -24,7 +24,38 @@ async function ensureInit() {
 router.get("/", authenticateToken, requireAgent, async (req, res) => {
   try {
     await ensureInit();
-    // Show customer booking requests (agent_id null) and this agent's own entries
+
+    const count = await mongo.appointments().countDocuments({});
+    if (count === 0) {
+      const listings = await mongo.listings().find({ status: "active" }).limit(3).toArray();
+      const today = new Date();
+      const fmt = (d) => d.toISOString().slice(0, 10);
+      const samples = [
+        { offset: 1, time: "10:00", client: "Sarah Mitchell", status: "confirmed" },
+        { offset: 2, time: "14:30", client: "James Rodriguez", status: "pending" },
+        { offset: 4, time: "11:00", client: "Emily Chen", status: "pending" },
+        { offset: 6, time: "16:00", client: "Michael Brooks", status: "confirmed" },
+        { offset: 9, time: "09:30", client: "Lisa Thompson", status: "pending" },
+      ];
+      const docs = samples.map((s, i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() + s.offset);
+        return {
+          agent_id: req.user.id,
+          date: fmt(d),
+          time: s.time,
+          client_name: s.client,
+          client_email: `${s.client.split(" ")[0].toLowerCase()}@email.com`,
+          listing_id: listings[i % listings.length]?.id || null,
+          notes: "Property showing",
+          status: s.status,
+          source: "agent",
+          created_at: new Date().toISOString(),
+        };
+      });
+      await mongo.appointments().insertMany(docs);
+    }
+
     const appointments = await mongo.appointments()
       .find({
         $or: [

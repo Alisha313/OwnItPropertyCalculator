@@ -19,6 +19,16 @@
 
 let currentUser = null;
 let authToken = localStorage.getItem("token");
+let customerPollTimers = [];
+
+function stopCustomerPolls() {
+  customerPollTimers.forEach(clearInterval);
+  customerPollTimers = [];
+}
+
+function startCustomerPoll(fn, ms) {
+  customerPollTimers.push(setInterval(fn, ms));
+}
 
 function saveToken(token) {
   authToken = token;
@@ -164,6 +174,7 @@ render();
 
 
 function render() {
+  stopCustomerPolls();
   const fullPath = (location.hash || "#/").replace("#", "");
   const path = fullPath.split("?")[0] || "/";
 
@@ -2597,7 +2608,7 @@ function ListingDetailPage(id) {
 }
 
 /** Book a property viewing — appears on agent calendar */
-function showBookAppointmentModal(listingId) {
+function showBookAppointmentModal(listingId, onBooked) {
   if (!currentUser) {
     location.hash = "#/auth";
     return;
@@ -2647,8 +2658,13 @@ function showBookAppointmentModal(listingId) {
           notes: modal.querySelector("#bookApptNotes").value.trim() || null,
         }),
       });
-      resultEl.innerHTML = `<div class="notice" style="background:rgba(16,185,129,.12);color:#059669;">${res.message || "Viewing requested!"}</div>`;
-      setTimeout(() => modal.remove(), 2000);
+      resultEl.innerHTML = `<div class="notice" style="background:rgba(16,185,129,.12);color:#059669;">
+        ${res.message || "Viewing requested!"} Check <a href="#/subscription">My Subscription</a> for confirmation status — we'll update it when an agent confirms.
+      </div>`;
+      setTimeout(() => {
+        modal.remove();
+        if (onBooked) onBooked();
+      }, 3500);
     } catch (err) {
       resultEl.innerHTML = `<div class="notice" style="background:rgba(239,68,68,.1);color:#b91c1c;">${err.message}</div>`;
     }
@@ -2679,7 +2695,7 @@ function AgentChatPage() {
 
   let humanMessages = [];
 
-  async function loadHumanChat() {
+  async function refreshHumanChat(notifyOnNew = false) {
     const msgEl = el.querySelector("#humanChatMessages");
     const inputRow = el.querySelector("#humanChatInputRow");
     const statusEl = el.querySelector("#humanChatStatus");
@@ -2697,12 +2713,26 @@ function AgentChatPage() {
         return;
       }
 
+      const prevAgentCount = humanMessages.filter(m => m.role === "agent" && m.sent_by_agent).length;
       humanMessages = data.messages || [];
+      const agentReplies = humanMessages.filter(m => m.role === "agent" && m.sent_by_agent);
       renderHumanMessages();
       inputRow.style.display = "flex";
+
+      if (notifyOnNew && agentReplies.length > prevAgentCount) {
+        showToast("Your agent replied — new message below", "success");
+        statusEl.innerHTML = `<span style="color:#10b981;font-size:13px;">Agent replied just now.</span>`;
+      } else if (agentReplies.length > 0) {
+        statusEl.innerHTML = `<span class="card__muted" style="font-size:13px;">You're connected with an agent. Messages update automatically.</span>`;
+      }
     } catch (err) {
       msgEl.innerHTML = `<p style="color:#ef4444;">${err.message}</p>`;
     }
+  }
+
+  async function loadHumanChat() {
+    await refreshHumanChat(false);
+    startCustomerPoll(() => refreshHumanChat(true), 8000);
   }
 
   function renderHumanMessages() {
@@ -2713,7 +2743,7 @@ function AgentChatPage() {
     }
     msgEl.innerHTML = humanMessages.map(m => `
       <div class="human-chat-msg human-chat-msg--${m.role === "user" ? "user" : "agent"}">
-        <div class="human-chat-msg__label">${m.role === "user" ? "You" : "Agent"}</div>
+        <div class="human-chat-msg__label">${m.role === "user" ? "You" : (m.sent_by_agent ? "Agent" : "OwnIt Team")}</div>
         <div>${m.content.replace(/</g, "&lt;")}</div>
       </div>`).join("");
     msgEl.scrollTop = msgEl.scrollHeight;
@@ -3116,23 +3146,47 @@ function SubscriptionPage() {
     }
   });
 
-  el.querySelector("#subBookApptBtn").addEventListener("click", () => showBookAppointmentModal(null));
+  el.querySelector("#subBookApptBtn").addEventListener("click", () => showBookAppointmentModal(null, () => loadMyAppointments(false)));
 
-  async function loadMyAppointments() {
+  async function loadMyAppointments(notifyOnConfirm = false) {
     const listEl = el.querySelector("#myAppointmentsList");
     try {
       const data = await apiFetch("/api/appointments");
-      const appts = data.appointments || [];
+      const appts = (data.appointments || []).sort((a, b) => new Date(a.date) - new Date(b.date));
       if (appts.length === 0) {
         listEl.innerHTML = `<div class="card__muted">No appointments booked yet.</div>`;
         return;
       }
-      listEl.innerHTML = appts.map(a => `
-        <div class="notice" style="margin-bottom:8px;">
-          <strong>${a.date}</strong> ${a.time ? "at " + a.time : ""}
-          ${a.listing_id ? `<span class="card__muted"> · Listing ${a.listing_id}</span>` : ""}
-          <span class="pill" style="font-size:11px;margin-left:6px;">${cap(a.status)}</span>
-        </div>`).join("");
+
+      const prevConfirmed = listEl.dataset.confirmedCount || "0";
+      const confirmedCount = appts.filter(a => a.status === "confirmed").length;
+      if (notifyOnConfirm && Number(prevConfirmed) < confirmedCount) {
+        showToast("An agent confirmed your showing!", "success");
+      }
+      listEl.dataset.confirmedCount = String(confirmedCount);
+
+      listEl.innerHTML = appts.map(a => {
+        const statusStyle = a.status === "confirmed"
+          ? "background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.35);color:#059669;"
+          : a.status === "cancelled"
+            ? "background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);opacity:.7;"
+            : "background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);";
+        const statusLabel = a.status === "confirmed"
+          ? "Confirmed by agent"
+          : a.status === "cancelled"
+            ? "Cancelled"
+            : "Awaiting agent confirmation";
+        return `
+        <div class="notice" style="margin-bottom:8px;border:1px solid;${statusStyle}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+            <div>
+              <strong>${a.date}</strong>${a.time ? ` at ${a.time}` : ""}
+              ${a.listing_id ? `<div class="card__muted" style="font-size:12px;margin-top:4px;">Property: ${a.listing_id}</div>` : ""}
+            </div>
+            <span class="pill" style="font-size:11px;white-space:nowrap;">${statusLabel}</span>
+          </div>
+        </div>`;
+      }).join("") + `<p class="card__muted" style="font-size:12px;margin-top:8px;">Status updates automatically when your agent confirms or cancels.</p>`;
     } catch (err) {
       listEl.innerHTML = `<div class="card__muted">Could not load appointments: ${err.message}</div>`;
     }
@@ -3142,7 +3196,8 @@ function SubscriptionPage() {
   (async () => {
     await loadSubscriptionStatus();
     await loadPlans();
-    await loadMyAppointments();
+    await loadMyAppointments(false);
+    startCustomerPoll(() => loadMyAppointments(true), 12000);
   })();
 
   return el;
@@ -3554,7 +3609,7 @@ function showToast(message, type = 'info') {
     bottom: 100px;
     right: 24px;
     padding: 12px 20px;
-    background: ${type === 'warning' ? '#fbbf24' : type === 'error' ? '#ef4444' : '#7c5cff'};
+    background: ${type === 'warning' ? '#fbbf24' : type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#7c5cff'};
     color: ${type === 'warning' ? '#000' : '#fff'};
     border-radius: 10px;
     font-size: 14px;

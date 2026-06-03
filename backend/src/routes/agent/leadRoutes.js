@@ -22,6 +22,28 @@ async function ensureInit() {
   if (!initialized) { await connectToMongoDB(); initialized = true; }
 }
 
+async function enrichLeadsWithListingLabels(leads) {
+  const ids = [...new Set(leads.map(l => l.source_listing_id).filter(Boolean))];
+  if (ids.length === 0) return leads;
+
+  const listings = await mongo.listings()
+    .find({ id: { $in: ids } })
+    .project({ id: 1, address: 1, city: 1, state: 1 })
+    .toArray();
+
+  const labelMap = {};
+  for (const listing of listings) {
+    labelMap[listing.id] = `${listing.address}, ${listing.city}, ${listing.state}`;
+  }
+
+  return leads.map(lead => ({
+    ...lead,
+    source_listing_label: lead.source_listing_id
+      ? (labelMap[lead.source_listing_id] || lead.source_listing_id)
+      : null,
+  }));
+}
+
 // GET /api/agent/leads
 router.get("/", authenticateToken, requireAgent, async (req, res) => {
   try {
@@ -34,7 +56,8 @@ router.get("/", authenticateToken, requireAgent, async (req, res) => {
     if (limit) query = query.limit(Number(limit));
 
     const leads = await query.toArray();
-    res.json({ leads });
+    const enriched = await enrichLeadsWithListingLabels(leads);
+    res.json({ leads: enriched });
   } catch (error) {
     console.error("Leads list error:", error);
     res.status(500).json({ error: "Failed to fetch leads" });
@@ -50,6 +73,8 @@ router.get("/:id", authenticateToken, requireAgent, async (req, res) => {
 
     const lead = await mongo.leads().findOne({ _id: oid });
     if (!lead) return res.status(404).json({ error: "Lead not found" });
+
+    const [enrichedLead] = await enrichLeadsWithListingLabels([lead]);
 
     // Fetch related data
     const [notes, calcRuns] = await Promise.all([
@@ -76,7 +101,7 @@ router.get("/:id", authenticateToken, requireAgent, async (req, res) => {
         .toArray();
     }
 
-    res.json({ lead, notes, calculator_runs: calcRuns, messages });
+    res.json({ lead: enrichedLead, notes, calculator_runs: calcRuns, messages });
   } catch (error) {
     console.error("Lead detail error:", error);
     res.status(500).json({ error: "Failed to fetch lead" });

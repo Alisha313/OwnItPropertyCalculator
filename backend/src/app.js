@@ -27,6 +27,7 @@ import agentCalculatorRoutes from "./routes/agent/calculatorRoutes.js";
 import agentDocumentRoutes from "./routes/agent/documentRoutes.js";
 import agentOpenHouseRoutes from "./routes/agent/openHouseRoutes.js";
 import agentCommissionRoutes from "./routes/agent/commissionRoutes.js";
+import agentDashboardRoutes from "./routes/agent/dashboardRoutes.js";
 import appointmentRoutes from "./routes/appointmentRoutes.js";
 import humanChatRoutes from "./routes/humanChatRoutes.js";
 
@@ -82,6 +83,7 @@ app.use("/api/appointments", appointmentRoutes);  // Customer viewing requests
 app.use("/api/ai", aiRoutes);                       // AI-powered property valuation
 
 // ── Agent Portal API Routes ──────────────────────────────────────────────────
+app.use("/api/agent/dashboard", agentDashboardRoutes);
 app.use("/api/agent/leads", agentLeadRoutes);
 app.use("/api/agent/listings", agentListingRoutes);
 app.use("/api/agent/discounts", agentDiscountRoutes);
