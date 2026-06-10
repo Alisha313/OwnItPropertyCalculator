@@ -20,6 +20,7 @@
 import express from "express";
 import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
 import { authenticateToken } from "./authRoutes.js";
+import { ObjectId } from "mongodb";
 
 const router = express.Router();
 const TRIAL_DAYS = 30; // Duration of the free trial period in days
@@ -82,7 +83,11 @@ async function getLatestSubscription(userId) {
  */
 async function getPlanById(planId) {
   if (!planId) return null;
-  return await mongo.subscription_plans().findOne({ _id: planId });
+  try {
+    return await mongo.subscription_plans().findOne({ _id: new ObjectId(planId) });
+  } catch {
+    return await mongo.subscription_plans().findOne({ _id: planId });
+  }
 }
 
 /**

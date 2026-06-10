@@ -14,6 +14,7 @@ import express from "express";
 import { mongo, connectToMongoDB } from "../../db/mongo.js";
 import { authenticateToken } from "../authRoutes.js";
 import { requireAgent } from "../../middleware/requireAgent.js";
+import { buildActiveDiscountMap, applyActiveDiscount } from "../../utils/discountUtils.js";
 
 const router = express.Router();
 
@@ -28,18 +29,14 @@ router.get("/", authenticateToken, requireAgent, async (req, res) => {
     await ensureInit();
     const listings = await mongo.listings().find({}).sort({ price: -1 }).toArray();
 
-    // Attach active discounts
     const discounts = await mongo.discounts().find({}).toArray();
-    const discountMap = {};
-    for (const d of discounts) {
-      if (d.expires_at && new Date(d.expires_at) < new Date()) continue;
-      discountMap[d.listing_id] = d;
-    }
+    const discountMap = buildActiveDiscountMap(discounts);
 
-    const enriched = listings.map(l => ({
-      ...l,
-      discount: discountMap[l.id] || null,
-    }));
+    const enriched = listings.map(l => {
+      const copy = { ...l };
+      applyActiveDiscount(copy, discountMap[l.id]);
+      return copy;
+    });
 
     res.json({ listings: enriched });
   } catch (error) {

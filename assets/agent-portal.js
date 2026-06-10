@@ -682,11 +682,12 @@ function renderAgentListingCard(l) {
   const statusText = l.status === "active" ? "Active" : (isRent ? "Rented" : "Sold");
   const imgUrl = safeCssUrl(l.image_url);
   const pricePerSqft = l.sqft && l.price ? Math.round(l.price / l.sqft) : null;
-  const hasDiscount = l.discount || l.price_reduced || (l.original_price && l.original_price !== l.price);
+  const hasDiscount = l.original_price && l.original_price !== l.price;
   const dom = daysOnMarket(l);
   const discountLabel = l.discount
     ? (l.discount.type === "percent" ? `${l.discount.amount}% off` : `$${Number(l.discount.amount).toLocaleString()} off`)
     : null;
+  const reducedBadgeText = discountLabel ? `PRICE REDUCED — ${discountLabel}` : "PRICE REDUCED";
   const discountExpiry = l.discount?.expires_at ? fmtDate(l.discount.expires_at) : null;
 
   return `
@@ -695,7 +696,7 @@ function renderAgentListingCard(l) {
         <div class="listing-card__image" style="background-image:url('${imgUrl}')">
           <span class="listing-card__status ${statusClass}">${statusText}</span>
           <span class="listing-card__type">${esc(l.type || (isRent ? "Rental" : "Sale"))}</span>
-          ${hasDiscount ? `<span class="agent-listing-card__reduced">PRICE REDUCED</span>` : ""}
+          ${hasDiscount ? `<span class="agent-listing-card__reduced">${esc(reducedBadgeText)}</span>` : ""}
         </div>
         <div class="listing-card__content">
           <div class="listing-card__price">

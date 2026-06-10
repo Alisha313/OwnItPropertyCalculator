@@ -65,6 +65,7 @@ async function createIndexes() {
   // Chat sessions and messages — scoped by user and session
   await db.collection("chat_sessions").createIndex({ user_id: 1 });
   await db.collection("chat_messages").createIndex({ session_id: 1 });
+  await db.collection("chat_messages").createIndex({ session_id: 1, created_at: -1 });
   
   // Market trends — queried by location and time period
   await db.collection("market_trends").createIndex({ city: 1, state: 1 });

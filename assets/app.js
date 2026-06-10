@@ -3538,6 +3538,69 @@ function renderChatMessages() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+async function sendChatMessageStream(message, typingEl) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+  const res = await fetch('/api/chat/message/stream', {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify({ message }),
+  });
+
+  if (!res.ok) {
+    if (res.status === 404) return false;
+    let data = null;
+    try { data = await res.json(); } catch { /* ignore */ }
+    throw new Error(data?.error || `Request failed: ${res.status}`);
+  }
+
+  typingEl.remove();
+
+  const agentMsg = { role: 'agent', content: '' };
+  chatMessages.push(agentMsg);
+  renderChatMessages();
+
+  const messagesEl = document.getElementById('chatMessages');
+  const agentEls = messagesEl.querySelectorAll('.chat-message--agent');
+  const contentEl = agentEls[agentEls.length - 1];
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() || '';
+
+    for (const part of parts) {
+      for (const line of part.split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') continue;
+        try {
+          const data = JSON.parse(payload);
+          if (data.token) {
+            agentMsg.content += data.token;
+            if (contentEl) contentEl.textContent = agentMsg.content;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+          if (data.error) throw new Error(data.error);
+        } catch (e) {
+          if (e.message && !e.message.includes('JSON')) throw e;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
 async function sendChatMessage() {
   const input = document.getElementById('chatInput');
   const message = input.value.trim();
@@ -3561,20 +3624,16 @@ async function sendChatMessage() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
   try {
-    // Simulate slight delay for realism
-    await new Promise(r => setTimeout(r, 800 + Math.random() * 700));
-
-    const data = await apiFetch('/api/chat/message', {
-      method: 'POST',
-      body: JSON.stringify({ message })
-    });
-
-    // Remove typing indicator
-    typingEl.remove();
-
-    // Add agent response
-    chatMessages.push({ role: 'agent', content: data.agentReply });
-    renderChatMessages();
+    const streamed = await sendChatMessageStream(message, typingEl);
+    if (!streamed) {
+      const data = await apiFetch('/api/chat/message', {
+        method: 'POST',
+        body: JSON.stringify({ message })
+      });
+      typingEl.remove();
+      chatMessages.push({ role: 'agent', content: data.agentReply });
+      renderChatMessages();
+    }
 
   } catch (err) {
     typingEl.remove();

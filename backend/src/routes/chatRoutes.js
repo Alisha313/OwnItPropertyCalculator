@@ -9,8 +9,9 @@
  *              The AI client prefers Groq (free tier) and falls back to OpenAI.
  *
  * Endpoints:
- *   GET  /api/chat/session  - Retrieve or create the user's chat session
- *   POST /api/chat/message  - Send a message and receive an AI reply
+ *   GET  /api/chat/session         - Retrieve or create the user's chat session
+ *   POST /api/chat/message         - Send a message and receive an AI reply
+ *   POST /api/chat/message/stream  - Send a message and stream the AI reply (SSE)
  */
 
 import express from "express";
@@ -20,13 +21,8 @@ import { authenticateToken } from "./authRoutes.js";
 
 const router = express.Router();
 
-// Lazy initialization flag: connect to MongoDB on the first request
 let initialized = false;
 
-/**
- * Ensures MongoDB is connected and seed data is loaded before handling a request.
- * Runs only once per server process lifetime.
- */
 async function ensureInitialized() {
   if (!initialized) {
     await connectToMongoDB();
@@ -35,32 +31,33 @@ async function ensureInitialized() {
   }
 }
 
-/**
- * Returns the configured AI client and model name.
- * Prefers Groq (free, fast) when a GROQ_API_KEY is present;
- * falls back to OpenAI if an OPENAI_API_KEY is available.
- * Returns null if neither key is configured.
- * @returns {{ client: OpenAI, model: string }|null}
- */
+let cachedAIClient = undefined;
+
 function getAIClient() {
+  if (cachedAIClient !== undefined) return cachedAIClient;
+
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey && groqKey !== "your_groq_api_key_here") {
-    return {
+    cachedAIClient = {
       client: new OpenAI({ apiKey: groqKey, baseURL: "https://api.groq.com/openai/v1" }),
-      model: "llama-3.3-70b-versatile",
+      model: process.env.GROQ_CHAT_MODEL || "llama-3.1-8b-instant",
     };
+    return cachedAIClient;
   }
+
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey && openaiKey !== "your_openai_api_key_here") {
-    return {
+    cachedAIClient = {
       client: new OpenAI({ apiKey: openaiKey }),
-      model: "gpt-4o-mini",
+      model: process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
     };
+    return cachedAIClient;
   }
-  return null;
+
+  cachedAIClient = null;
+  return cachedAIClient;
 }
 
-// ── System prompt ─────────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are Alex, a knowledgeable and friendly AI real estate assistant for OwnIt Property Calculator — a platform that helps users buy, sell, and rent homes across the United States.
 
 Your role:
@@ -79,32 +76,13 @@ When doing mortgage math, show your work clearly with numbers. For example: "On 
 
 You have access to the full conversation history, so always remember what the user said before.`;
 
-// ── Fallback responses when no API key is configured ─────────────────────────
-// Shown to users when neither GROQ_API_KEY nor OPENAI_API_KEY is set in .env
 const FALLBACK_RESPONSES = [
   "I'm your OwnIt AI assistant! To enable real AI responses, add a free Groq API key to the backend `.env` file (`GROQ_API_KEY=gsk_...`). Get one free at console.groq.com — no credit card needed!",
   "Great question! For live AI-powered answers, grab a free key at console.groq.com and set `GROQ_API_KEY` in your backend `.env`. Once that's set, I can answer anything about mortgages, market trends, and more.",
 ];
 
-/**
- * Sends the user's message plus conversation history to the AI provider
- * and returns the assistant's reply as a plain string.
- *
- * @param {string}   userMessage         - The latest message from the user.
- * @param {Array<{role: string, content: string}>} conversationHistory
- *        - Prior messages in the session (oldest first).
- * @returns {Promise<string>} The AI's reply, or a fallback hint if no key is set.
- */
-async function getAIReply(userMessage, conversationHistory) {
-  const ai = getAIClient();
-
-  // No API key configured — return a helpful setup hint
-  if (!ai) {
-    return FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
-  }
-
-  // Build the message array: system prompt + chat history + new user message
-  const messages = [
+function buildMessages(userMessage, conversationHistory) {
+  return [
     { role: "system", content: SYSTEM_PROMPT },
     ...conversationHistory.map(m => ({
       role: m.role === "agent" ? "assistant" : "user",
@@ -112,22 +90,55 @@ async function getAIReply(userMessage, conversationHistory) {
     })),
     { role: "user", content: userMessage },
   ];
+}
+
+async function getAIReply(userMessage, conversationHistory) {
+  const ai = getAIClient();
+  if (!ai) {
+    return FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
+  }
 
   const completion = await ai.client.chat.completions.create({
     model: ai.model,
-    messages,
-    max_tokens: 600,  // Keep responses concise for chat UX
-    temperature: 0.7, // Balanced creativity vs. accuracy
+    messages: buildMessages(userMessage, conversationHistory),
+    max_tokens: 350,
+    temperature: 0.7,
   });
 
   return completion.choices[0].message.content.trim();
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+async function* streamAIReply(userMessage, conversationHistory) {
+  const ai = getAIClient();
+  if (!ai) {
+    yield FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
+    return;
+  }
+
+  const stream = await ai.client.chat.completions.create({
+    model: ai.model,
+    messages: buildMessages(userMessage, conversationHistory),
+    max_tokens: 350,
+    temperature: 0.7,
+    stream: true,
+  });
+
+  for await (const chunk of stream) {
+    const token = chunk.choices[0]?.delta?.content;
+    if (token) yield token;
+  }
+}
+
 function parseDate(value) {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isPaidFromSubscription(subscription) {
+  if (!subscription || subscription.status !== "active") return false;
+  const end = parseDate(subscription.subscription_end);
+  return !end || end > new Date();
 }
 
 async function hasPaidSubscription(userId) {
@@ -135,14 +146,10 @@ async function hasPaidSubscription(userId) {
     { user_id: userId, status: "active" },
     { sort: { updated_at: -1 } }
   );
-  if (subscription) {
-    const dbEnd = parseDate(subscription.subscription_end);
-    if (!dbEnd || dbEnd > new Date()) return true;
-  }
-  return false;
+  return isPaidFromSubscription(subscription);
 }
 
-async function checkChatAccess(userId) {
+async function checkChatAccess(userId, subscriptionSnapshot) {
   const session = await mongo.chat_sessions().findOne(
     { user_id: userId, $or: [{ session_type: "ai" }, { session_type: { $exists: false } }] },
     { sort: { started_at: -1 } }
@@ -154,7 +161,11 @@ async function checkChatAccess(userId) {
   const now = new Date();
   const daysRemaining = Math.ceil((freeAccessEnds - now) / (1000 * 60 * 60 * 24));
 
-  if (await hasPaidSubscription(userId)) {
+  const isPaid = subscriptionSnapshot !== undefined
+    ? isPaidFromSubscription(subscriptionSnapshot)
+    : await hasPaidSubscription(userId);
+
+  if (isPaid) {
     return { hasAccess: true, isPaid: true, sessionId: session._id };
   }
 
@@ -166,6 +177,97 @@ async function checkChatAccess(userId) {
   };
 }
 
+async function ensureChatSession(access, userId) {
+  if (!access.isNew) return access.sessionId;
+
+  const freeAccessEnds = new Date();
+  freeAccessEnds.setDate(freeAccessEnds.getDate() + 7);
+
+  const result = await mongo.chat_sessions().insertOne({
+    user_id: userId,
+    session_type: "ai",
+    started_at: new Date().toISOString(),
+    free_access_ends: freeAccessEnds.toISOString(),
+    total_messages: 0,
+  });
+  return result.insertedId;
+}
+
+async function fetchChatHistory(sessionId) {
+  const history = await mongo.chat_messages()
+    .find({ session_id: sessionId })
+    .sort({ created_at: -1 })
+    .limit(20)
+    .project({ role: 1, content: 1 })
+    .toArray();
+  history.reverse();
+  return history;
+}
+
+async function ensureLead(user, listingId) {
+  const existingLead = await mongo.leads().findOne({ user_id: user.id });
+  if (existingLead) return;
+
+  await mongo.leads().insertOne({
+    user_id: user.id,
+    user_name: user.name || "Unknown",
+    user_email: user.email || "",
+    source_listing_id: listingId || null,
+    stage: "new",
+    created_at: new Date().toISOString(),
+  });
+}
+
+async function prepareChatMessage(req) {
+  const { message } = req.body;
+  if (!message || message.trim().length === 0) {
+    return { error: { status: 400, body: { error: "Message cannot be empty" } } };
+  }
+
+  const access = await checkChatAccess(req.user.id, req.subscription);
+  if (!access.hasAccess) {
+    return {
+      error: {
+        status: 403,
+        body: { error: "Your free week has ended. Subscribe to continue!", upgradeRequired: true },
+      },
+    };
+  }
+
+  const sessionId = await ensureChatSession(access, req.user.id);
+  const [history, existingLead] = await Promise.all([
+    fetchChatHistory(sessionId),
+    mongo.leads().findOne({ user_id: req.user.id }, { projection: { _id: 1 } }),
+  ]);
+
+  if (!existingLead) {
+    await ensureLead(req.user, req.body.listing_id);
+  }
+
+  const trimmed = message.trim();
+  await mongo.chat_messages().insertOne({
+    session_id: sessionId,
+    role: "user",
+    content: trimmed,
+    created_at: new Date().toISOString(),
+  });
+
+  return { sessionId, history, trimmed };
+}
+
+function handleChatError(error, res) {
+  console.error("Chat message error:", error);
+
+  if (error?.status === 401) {
+    return res.status(500).json({ error: "Invalid OpenAI API key — check your OPENAI_API_KEY environment variable." });
+  }
+  if (error?.status === 429) {
+    return res.status(500).json({ error: "OpenAI rate limit reached. Please try again in a moment." });
+  }
+
+  return res.status(500).json({ error: "Failed to send message" });
+}
+
 // ── GET /api/chat/session ─────────────────────────────────────────────────────
 router.get("/session", authenticateToken, async (req, res) => {
   try {
@@ -173,7 +275,7 @@ router.get("/session", authenticateToken, async (req, res) => {
 
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-    const access = await checkChatAccess(req.user.id);
+    const access = await checkChatAccess(req.user.id, req.subscription);
 
     if (access.isNew) {
       const freeAccessEnds = new Date();
@@ -227,74 +329,14 @@ router.get("/session", authenticateToken, async (req, res) => {
 router.post("/message", authenticateToken, async (req, res) => {
   try {
     await ensureInitialized();
-
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-    const { message } = req.body;
-    if (!message || message.trim().length === 0) {
-      return res.status(400).json({ error: "Message cannot be empty" });
-    }
+    const prepared = await prepareChatMessage(req);
+    if (prepared.error) return res.status(prepared.error.status).json(prepared.error.body);
 
-    const access = await checkChatAccess(req.user.id);
+    const { sessionId, history, trimmed } = prepared;
+    const agentReply = await getAIReply(trimmed, history);
 
-    if (!access.hasAccess) {
-      return res.status(403).json({
-        error: "Your free week has ended. Subscribe to continue!",
-        upgradeRequired: true,
-      });
-    }
-
-    let sessionId = access.sessionId;
-
-    // Create session if this is the first message ever
-    if (access.isNew) {
-      const freeAccessEnds = new Date();
-      freeAccessEnds.setDate(freeAccessEnds.getDate() + 7);
-
-      const result = await mongo.chat_sessions().insertOne({
-        user_id: req.user.id,
-        session_type: "ai",
-        started_at: new Date().toISOString(),
-        free_access_ends: freeAccessEnds.toISOString(),
-        total_messages: 0,
-      });
-      sessionId = result.insertedId;
-    }
-
-    // Fetch last 20 messages for context window (keeps tokens reasonable)
-    const history = await mongo.chat_messages()
-      .find({ session_id: sessionId })
-      .sort({ created_at: -1 })
-      .limit(20)
-      .project({ role: 1, content: 1 })
-      .toArray();
-    history.reverse(); // oldest first for the API
-
-    // Auto-create lead if this is the user's first message
-    const existingLead = await mongo.leads().findOne({ user_id: req.user.id });
-    if (!existingLead) {
-      await mongo.leads().insertOne({
-        user_id: req.user.id,
-        user_name: req.user.name || "Unknown",
-        user_email: req.user.email || "",
-        source_listing_id: req.body.listing_id || null,
-        stage: "new",
-        created_at: new Date().toISOString(),
-      });
-    }
-
-    // Save user message first
-    await mongo.chat_messages().insertOne({
-      session_id: sessionId,
-      role: "user",
-      content: message.trim(),
-      created_at: new Date().toISOString(),
-    });
-
-    // Call OpenAI (or fallback)
-    const agentReply = await getAIReply(message.trim(), history);
-
-    // Save AI reply
     await mongo.chat_messages().insertOne({
       session_id: sessionId,
       role: "agent",
@@ -302,29 +344,71 @@ router.post("/message", authenticateToken, async (req, res) => {
       created_at: new Date().toISOString(),
     });
 
-    // Increment message count
     await mongo.chat_sessions().updateOne(
       { _id: sessionId },
       { $inc: { total_messages: 2 } }
     );
 
     res.json({
-      userMessage: message.trim(),
+      userMessage: trimmed,
       agentReply,
       sessionId,
     });
   } catch (error) {
-    console.error("Chat message error:", error);
+    handleChatError(error, res);
+  }
+});
 
-    // Surface API key errors cleanly
-    if (error?.status === 401) {
-      return res.status(500).json({ error: "Invalid OpenAI API key — check your OPENAI_API_KEY environment variable." });
-    }
-    if (error?.status === 429) {
-      return res.status(500).json({ error: "OpenAI rate limit reached. Please try again in a moment." });
+// ── POST /api/chat/message/stream ─────────────────────────────────────────────
+router.post("/message/stream", authenticateToken, async (req, res) => {
+  try {
+    await ensureInitialized();
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+    const prepared = await prepareChatMessage(req);
+    if (prepared.error) return res.status(prepared.error.status).json(prepared.error.body);
+
+    const { sessionId, history, trimmed } = prepared;
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    let agentReply = "";
+    try {
+      for await (const token of streamAIReply(trimmed, history)) {
+        agentReply += token;
+        res.write(`data: ${JSON.stringify({ token })}\n\n`);
+      }
+    } catch (streamError) {
+      console.error("Chat stream error:", streamError);
+      res.write(`data: ${JSON.stringify({ error: "Failed to stream response" })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      return res.end();
     }
 
-    res.status(500).json({ error: "Failed to send message" });
+    await mongo.chat_messages().insertOne({
+      session_id: sessionId,
+      role: "agent",
+      content: agentReply.trim(),
+      created_at: new Date().toISOString(),
+    });
+
+    await mongo.chat_sessions().updateOne(
+      { _id: sessionId },
+      { $inc: { total_messages: 2 } }
+    );
+
+    res.write("data: [DONE]\n\n");
+    res.end();
+  } catch (error) {
+    if (!res.headersSent) {
+      handleChatError(error, res);
+    } else {
+      console.error("Chat stream error:", error);
+      res.end();
+    }
   }
 });
 

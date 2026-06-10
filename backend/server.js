@@ -12,6 +12,7 @@ dotenv.config(); // Load .env variables (PORT, JWT_SECRET, MONGODB_URI, etc.)
 
 import http from "node:http";
 import app from "./src/app.js";
+import { connectToMongoDB, seedDatabase } from "./src/db/mongo.js";
 
 // Use the PORT env variable if set; default to 3000 for local development
 const configuredPort = Number.parseInt(process.env.PORT ?? "", 10);
@@ -44,6 +45,11 @@ function startServer(port, allowFallback) {
     console.log(`✅ OwnIt backend running on http://localhost:${port}`);
   });
 }
+
+// Warm MongoDB on startup so the first chat request is not slow
+connectToMongoDB()
+  .then(() => seedDatabase())
+  .catch((err) => console.warn("MongoDB warmup skipped:", err.message));
 
 // Start the server — allow one automatic port fallback
 startServer(defaultPort, true);

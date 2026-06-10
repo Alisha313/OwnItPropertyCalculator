@@ -13,6 +13,7 @@
 
 import express from "express";
 import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
+import { activeDiscountFilter, applyActiveDiscount } from "../utils/discountUtils.js";
 
 const router = express.Router();
 
@@ -95,26 +96,12 @@ router.get("/", async (req, res) => {
       .sort(sortOption)
       .toArray();
 
-    // Attach active discounts to listings
     const listingIds = listings.map(l => l.id);
-    const now = new Date().toISOString();
-    const discounts = await mongo.discounts().find({
-      listing_id: { $in: listingIds },
-      $or: [{ expires_at: null }, { expires_at: { $gt: now } }]
-    }).toArray();
-
-    const discountMap = {};
-    for (const d of discounts) discountMap[d.listing_id] = d;
+    const discounts = await mongo.discounts().find(activeDiscountFilter(listingIds)).toArray();
+    const discountMap = Object.fromEntries(discounts.map(d => [d.listing_id, d]));
 
     for (const l of listings) {
-      const d = discountMap[l.id];
-      if (d) {
-        l.original_price = l.price;
-        l.discount = { type: d.type, amount: d.amount, expires_at: d.expires_at };
-        l.price = d.type === "percent"
-          ? Math.round(l.price * (1 - d.amount / 100))
-          : Math.max(0, l.price - d.amount);
-      }
+      applyActiveDiscount(l, discountMap[l.id]);
     }
 
     res.json({ count: listings.length, listings });
@@ -156,25 +143,12 @@ router.get("/map", async (req, res) => {
       .sort({ price: -1 })
       .toArray();
 
-    // Apply discounts to map listing prices
     const mapIds = listings.map(l => l.id);
-    const now = new Date().toISOString();
-    const mapDiscounts = await mongo.discounts().find({
-      listing_id: { $in: mapIds },
-      $or: [{ expires_at: null }, { expires_at: { $gt: now } }]
-    }).toArray();
-
-    const mapDiscountMap = {};
-    for (const d of mapDiscounts) mapDiscountMap[d.listing_id] = d;
+    const mapDiscounts = await mongo.discounts().find(activeDiscountFilter(mapIds)).toArray();
+    const mapDiscountMap = Object.fromEntries(mapDiscounts.map(d => [d.listing_id, d]));
 
     for (const l of listings) {
-      const d = mapDiscountMap[l.id];
-      if (d) {
-        l.original_price = l.price;
-        l.price = d.type === "percent"
-          ? Math.round(l.price * (1 - d.amount / 100))
-          : Math.max(0, l.price - d.amount);
-      }
+      applyActiveDiscount(l, mapDiscountMap[l.id], { includeDiscountMeta: false });
     }
 
     res.json({ 
@@ -201,20 +175,8 @@ router.get("/:id", async (req, res) => {
 
     if (!listing) return res.status(404).json({ error: "Listing not found" });
 
-    // Apply active discount to the displayed price
-    const now = new Date().toISOString();
-    const discount = await mongo.discounts().findOne({
-      listing_id: listing.id,
-      $or: [{ expires_at: null }, { expires_at: { $gt: now } }]
-    });
-
-    if (discount) {
-      listing.original_price = listing.price;
-      listing.discount = { type: discount.type, amount: discount.amount, expires_at: discount.expires_at };
-      listing.price = discount.type === "percent"
-        ? Math.round(listing.price * (1 - discount.amount / 100))
-        : Math.max(0, listing.price - discount.amount);
-    }
+    const discount = await mongo.discounts().findOne(activeDiscountFilter([listing.id]));
+    applyActiveDiscount(listing, discount);
 
     res.json(listing);
   } catch (error) {
