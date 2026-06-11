@@ -1,6 +1,6 @@
 # OwnIt Property Calculator
 
-A full-stack property platform for browsing listings, running mortgage and rental calculators, estimating home values, and managing leads through an agent CRM. Built for **CPS 4982** as a student-friendly real estate web application.
+A full-stack property platform for browsing listings, running mortgage and rental calculators, estimating home values, and managing leads through an agent CRM. Built a student-friendly real estate web application.
 
 The customer site is a vanilla JavaScript SPA served by the Express backend. The agent portal is a separate SPA on the same server.
 
@@ -176,10 +176,4 @@ Open [http://localhost:3000](http://localhost:3000). The server seeds sample lis
 - **Theme:** `html.light` / `html.dark` on `<html>`; shared between customer and agent sites.
 - **Tests:** No automated test suite in the repo yet; see `CODE_REVIEW.md` for review notes.
 
----
 
-## Course info
-
-**Own It Property Calculator** — CPS 4982, Summer I 2026.
-
-Legacy WordPress plugin files (`ci_ownit_property_calculator.php`, old `readme.txt` content) are not part of the running application.
