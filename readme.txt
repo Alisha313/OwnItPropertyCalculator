@@ -1,36 +1,31 @@
-=== CI Rental property calculator ===
-Contributors: calculatorio
-Tags: rental property calculator, real estate investment analysis, rental income calculation, property management metrics, real estate appreciation, operating expenses estimation, 50% rule in rental properties, 1% rental income rule, internal rate of return (IRR) analysis, capitalization rate (cap rate) evaluation
-Requires at least: 5.0
-Tested up to: 6.4.0
-Stable tag: 1.0.0
-License: GPLv2 or later
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
+=== OwnIt Property Calculator ===
+CPS 4982 — Summer I 2026
 
-Free rental property calculator that uses the formula NPV = [CF¹ / (1 + R¹)] - PC. A rental ROI calculator that helps analyze and compare investment rental properties.
+Full documentation: see README.md in this folder.
 
-[https://www.calculator.io/rental-property-calculator/](https://www.calculator.io/rental-property-calculator/)
+== What it is ==
 
-== Usage ==
+A Node.js + MongoDB property platform with:
+- Customer site (listings, mortgage/rental/rent-vs-buy calculators, home value estimator, AI chat)
+- Agent portal (CRM pipeline, listings, home values, showings, inbox)
 
-Add the Rental Property Calculator shortcode to your page, post or sidebar:
+== Quick start ==
 
-`[ci_rental_property_calculator]`
+1. cd backend && npm install
+2. Copy environment variables into backend/.env (see README.md)
+3. npm run dev
+4. Open http://localhost:3000 (customer) or http://localhost:3000/agent.html (agents)
 
-Add the following code to your template where you would like the Rental Property Calculator to appear:
+== Main routes (customer) ==
 
-`<?php display_ci_rental_property_calculator(); ?>`
+#/          Home
+#/sales     Sales listings
+#/rentals   Rental listings
+#/mortgage  Calculators
+#/sell      Home value estimator
+#/auth      Login / register
+#/subscription  Plans and appointments
 
-== Screenshots ==
+== License ==
 
-1. The Rental Property Calculator Input Form.
-
-== Installation ==
-
-1. Upload the Rental Property Calculator /ci_rental_property_calculator/ folder to the /wp-content/plugins/ directory.
-2. Activate the Rental Property Calculator plugin through the "Plugins" menu in WordPress.
-
-== Changelog ==
-
-= 1.0.0 =
-* Initial release of Rental Property Calculator
+Academic / course project.

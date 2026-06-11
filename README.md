@@ -1,292 +1,185 @@
-# Own It Property Calculator
+# OwnIt Property Calculator
 
-A modern real estate platform with AI-powered features for property valuation, market trends analysis, and interactive map views.
+A full-stack property platform for browsing listings, running mortgage and rental calculators, estimating home values, and managing leads through an agent CRM. Built for **CPS 4982** as a student-friendly real estate web application.
+
+The customer site is a vanilla JavaScript SPA served by the Express backend. The agent portal is a separate SPA on the same server.
+
+---
+
+## Live URLs (local)
+
+| App | URL |
+|-----|-----|
+| Customer site | [http://localhost:3000](http://localhost:3000) |
+| Agent portal | [http://localhost:3000/agent.html](http://localhost:3000/agent.html) |
+
+Use the **backend on port 3000** — not the Vite dev server in `frontend/` (that folder is an unused scaffold).
+
+---
 
 ## Features
 
-### Core Features
-- **Property Listings** - Browse homes for sale and rentals
-- **Mortgage Calculator** - Calculate monthly payments and affordability
-- **User Authentication** - Sign up/login with subscription management
-- **AI Chat Agent** - Get real estate guidance with 1-week free trial
-- **Tax & Affordability Calculations** - Calculate property taxes, insurance, HOA fees, and total monthly payments
-- **Saved Calculations** - Save and reference your property calculation scenarios
+### Customer site (`index.html` + `assets/app.js`)
 
-### AI Real Estate Agent Features (New!)
+| Page | Route | Description |
+|------|-------|-------------|
+| Home | `#/` | Hero, interactive US map, featured listings, quick filters |
+| Sales | `#/sales` | Filterable sale listings with cards and map |
+| Rentals | `#/rentals` | Filterable rental listings |
+| Mortgage | `#/mortgage` | Mortgage, rental affordability, and rent-vs-buy calculators with amortization |
+| Sell | `#/sell` | “What's My Home Worth?” — estimate, comps, market trend chart, net proceeds |
+| Listing detail | `#/listing/:id` | Photos, stats, mortgage/rental shortcuts, agent chat, book a viewing |
+| Auth | `#/auth` | Register and login (JWT stored in `localStorage`) |
+| Subscription | `#/subscription` | Trial, plans, payment method (demo), appointments |
+| Agent chat | `#/agent-chat` | Direct messaging with a human agent (subscription required) |
+| Contact | `#/contact` | Support info |
 
-The AI Real Estate Agent chat widget now includes three powerful AI capabilities:
+**Also included**
 
-#### 1. Property Value Estimate
-Get AI-powered property valuation based on comparable properties.
-- Uses rules-based algorithm with bedroom, bathroom, and age adjustments
-- Compares against similar properties in the same city/state
-- Shows confidence level based on number of comparables found
+- Light / dark theme (persisted in `localStorage`)
+- Floating AI chat widget (Groq or OpenAI) with map, trends, and valuation tools
+- Price-reduction badges on discounted listings
+- Leaflet map with state choropleth and listing markers
+- Chart.js market trend charts on listing and sell pages
 
-#### 2. Market Trend Summary
-View historical price trends for any city.
-- Quarterly price-per-sqft data from Q1 2023 to Q4 2025
-- Interactive Chart.js visualization
-- Growth statistics and trend analysis
+### Agent portal (`agent.html` + `assets/agent-portal.js`)
 
-#### 3. Map View for Listings
-Explore listings on an interactive Leaflet map.
-- Filter by For Sale, For Rent, or All listings
-- Click markers to see property details and prices
-- Navigate to full listing details
+| Page | Route | Description |
+|------|-------|-------------|
+| Dashboard | `#/` | Stats, action queue, recent leads |
+| Clients | `#/leads` | Drag-and-drop CRM pipeline |
+| Inbox | `#/chats` | AI and human customer conversations |
+| Listings | `#/listings` | Manage sale/rental inventory, apply price reductions |
+| Home Values | `#/home-values` | Run valuations, view seller leads, market comparison |
+| Showings | `#/appointments` | Calendar and viewing requests from customers |
+| Settings | `#/settings` | Agent profile |
 
-## Tech Stack
+Seller leads from `#/sell` appear in the pipeline with a **Seller** tag and property details in the lead drawer.
 
-- **Frontend**: Vanilla JavaScript SPA
-- **Backend**: Node.js / Express
-- **Database**: SQLite (better-sqlite3)
-- **Maps**: Leaflet.js
-- **Charts**: Chart.js
+---
 
-## API Endpoints
+## Tech stack
 
-### AI Endpoints
+| Layer | Technologies |
+|-------|----------------|
+| Frontend | HTML, CSS, vanilla ES modules (`assets/app.js`, `assets/agent-portal.js`) |
+| Maps / charts | Leaflet, Chart.js |
+| Backend | Node.js, Express |
+| Database | MongoDB Atlas (`backend/src/db/mongo.js`) |
+| Auth | JWT (`jsonwebtoken`), `bcryptjs` for passwords |
+| AI chat | Groq API (preferred) or OpenAI via `openai` SDK |
+| Valuation | Rules-based service (`backend/src/services/valuationService.js`) using listings + market trend data |
 
-#### GET `/api/ai/valuation`
-Get AI-powered property valuation.
+---
 
-**Query Parameters:**
-- `listingId` (required) - ID of the listing to valuate
+## Project structure
 
-**Response:**
-```json
-{
-  "listing": { "id": 1, "price": 599000, "city": "Edison", ... },
-  "estimatedValue": 612500,
-  "explanation": "Based on 3 comparable properties...",
-  "compsUsed": 3,
-  "adjustments": { "bedrooms": 5000, "bathrooms": 2500, "age": -1500 }
-}
+```
+OwnItPropertyCalculator/
+├── index.html              # Customer SPA shell
+├── agent.html              # Agent portal shell
+├── assets/
+│   ├── app.js              # Customer router, pages, API client
+│   ├── app.css             # Global styles + theme
+│   ├── agent-portal.js     # Agent router and CRM UI
+│   └── agent-portal.css    # Agent shell styles
+├── backend/
+│   ├── server.js           # HTTP server entry
+│   ├── src/
+│   │   ├── app.js          # Express app, static files, API mounts
+│   │   ├── db/mongo.js     # MongoDB connection, seed data, indexes
+│   │   ├── services/
+│   │   │   └── valuationService.js
+│   │   └── routes/         # auth, listings, chat, ai, subscriptions, agent/*
+│   └── package.json
+├── frontend/               # Unused Vite/React scaffold (not the main app)
+├── CODE_REVIEW.md          # Code review notes
+└── README.md               # This file
 ```
 
-#### GET `/api/ai/market-trends`
-Get market price trends for a city.
+---
 
-**Query Parameters:**
-- `city` (required) - City name (e.g., "Edison")
-- `state` (required) - State abbreviation (e.g., "NJ")
+## Getting started
 
-**Response:**
-```json
-{
-  "city": "Edison",
-  "state": "NJ",
-  "series": [
-    { "quarter": 1, "year": 2023, "pricePerSqft": 285 },
-    ...
-  ],
-  "summary": {
-    "earliestPrice": 285,
-    "latestPrice": 342,
-    "totalGrowthPercent": 20.0
-  }
-}
+### Prerequisites
+
+- Node.js 18+
+- MongoDB Atlas cluster (or compatible URI)
+- Optional: [Groq](https://console.groq.com/) API key for AI chat
+
+### 1. Install backend dependencies
+
+```bash
+cd backend
+npm install
 ```
 
-#### GET `/api/listings/map`
-Get listings with coordinates for map display.
+### 2. Environment variables
 
-**Query Parameters:**
-- `kind` (optional) - Filter by "sale" or "rental"
+Create `backend/.env`:
 
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "kind": "sale",
-    "price": 599000,
-    "city": "Edison",
-    "state": "NJ",
-    "lat": 40.5187,
-    "lng": -74.4121,
-    "bedrooms": 4,
-    "bathrooms": 2.5,
-    "square_feet": 2200
-  },
-  ...
-]
+```env
+PORT=3000
+JWT_SECRET=your_jwt_secret_here
+SESSION_SECRET=your_session_secret_here
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/?appName=ownit
+
+# AI chat (at least one recommended)
+GROQ_API_KEY=your_groq_api_key
+# GROQ_CHAT_MODEL=llama-3.1-8b-instant
+
+# Optional OpenAI fallback
+# OPENAI_API_KEY=your_openai_key
 ```
 
-### Calculations & Tax Endpoints
+### 3. Run the server
 
-#### GET `/api/taxes/location`
-Get tax rates for a specific location.
-
-**Query Parameters:**
-- `city` (required) - City name
-- `state` (required) - State abbreviation
-
-**Response:**
-```json
-{
-  "id": 1,
-  "state": "NJ",
-  "city": "Edison",
-  "property_tax_rate": 0.89,
-  "sales_tax_rate": 0.07,
-  "transfer_tax": 0.01
-}
+```bash
+cd backend
+npm run dev
 ```
 
-#### POST `/api/calculations`
-Create a new property affordability calculation (requires authentication).
+Open [http://localhost:3000](http://localhost:3000). The server seeds sample listings on first API use if the database is empty.
 
-**Request Body:**
-```json
-{
-  "listing_id": "1",
-  "purchase_price": 599000,
-  "down_payment": 120000,
-  "interest_rate": 6.5,
-  "loan_term_years": 30,
-  "property_tax": 5330,
-  "insurance": 1200,
-  "hoa_fees": 0
-}
-```
+### 4. Agent access
 
-**Response:**
-```json
-{
-  "id": 5,
-  "user_id": 2,
-  "listing_id": "1",
-  "purchase_price": 599000,
-  "down_payment": 120000,
-  "interest_rate": 6.5,
-  "loan_term_years": 30,
-  "property_tax": 5330,
-  "insurance": 1200,
-  "hoa_fees": 0,
-  "total_monthly_payment": 3542.50
-}
-```
+1. Open [http://localhost:3000/agent.html](http://localhost:3000/agent.html)
+2. Register an agent account from the login screen
+3. Use the portal to manage leads, listings, and home-value estimates
 
-#### GET `/api/calculations/:id`
-Get a specific calculation (requires authentication).
+---
 
-**Response:** Returns the calculation object with all details.
+## API overview
 
-#### GET `/api/calculations`
-List all calculations for the current user (requires authentication).
+| Prefix | Purpose |
+|--------|---------|
+| `/api/auth` | Register, login, logout, `me` |
+| `/api/listings` | Public listings (filter, map, detail) |
+| `/api/subscriptions` | Plans, trial, billing (demo) |
+| `/api/chat` | AI chat session and messages (incl. SSE stream) |
+| `/api/human-chat` | Customer ↔ agent messaging |
+| `/api/appointments` | Viewing requests |
+| `/api/ai` | Valuation, market trends, home-value estimate, seller lead |
+| `/api/agent/*` | Dashboard, leads, listings, discounts, chats, appointments, analytics, etc. |
 
-**Response:** Returns array of calculation objects.
+**Home value endpoints**
 
-#### POST `/api/calculations/:id/save`
-Save a calculation to favorites (requires authentication).
+- `POST /api/ai/home-value` — public estimate from city, state, sqft, beds/baths, etc.
+- `POST /api/ai/home-value/request-agent` — authenticated; creates a seller lead for agents
 
-**Request Body:**
-```json
-{
-  "name": "My Ideal Home",
-  "notes": "Primary residence option with 30-year mortgage"
-}
-```
+---
 
-**Response:**
-```json
-{
-  "id": 3,
-  "user_id": 2,
-  "calculation_id": 5,
-  "name": "My Ideal Home",
-  "notes": "Primary residence option with 30-year mortgage",
-  "saved_at": "2026-04-01T12:34:56Z"
-}
-```
+## Development notes
 
-#### GET `/api/calculations/saved`
-Get all saved calculations for the current user (requires authentication).
+- **Routing:** Hash-based (`#/sales`, `#/sell`, …). Initial `render()` runs at the end of `app.js` so sell-page helpers load first.
+- **Static assets:** Served from `/assets` by Express; customer pages load `assets/app.js` as `type="module"`.
+- **Theme:** `html.light` / `html.dark` on `<html>`; shared between customer and agent sites.
+- **Tests:** No automated test suite in the repo yet; see `CODE_REVIEW.md` for review notes.
 
-**Response:** Returns array of saved calculation objects.
+---
 
-## Database Schema
+## Course info
 
-### New Tables
+**Own It Property Calculator** — CPS 4982, Summer I 2026.
 
-#### `taxes`
-Stores property tax rates and fees by location.
-- `id` - Primary key
-- `state` - State abbreviation
-- `city` - City name
-- `property_tax_rate` - Annual property tax as percentage
-- `sales_tax_rate` - Sales tax rate
-- `transfer_tax` - Transfer tax for property sales
-
-#### `calculations`
-Stores property affordability calculations.
-- `id` - Primary key
-- `user_id` - ID of the user (foreign key to users)
-- `listing_id` - ID of the listing (foreign key to listings)
-- `purchase_price` - Property purchase price
-- `down_payment` - Down payment amount
-- `interest_rate` - Mortgage interest rate
-- `loan_term_years` - Loan term in years
-- `property_tax` - Calculated annual property tax
-- `insurance` - Annual insurance cost
-- `hoa_fees` - Annual HOA fees
-- `total_monthly_payment` - Total monthly mortgage payment including all costs
-
-#### `saved_calculations`
-Stores user's saved calculation scenarios.
-- `id` - Primary key
-- `user_id` - ID of the user (foreign key to users)
-- `calculation_id` - ID of the calculation (foreign key to calculations)
-- `name` - User-defined name for the calculation
-- `notes` - Optional notes about the calculation
-- `saved_at` - Timestamp when calculation was saved
-
-#### `market_trends`
-Stores quarterly price-per-sqft data for market trend analysis.
-- `id` - Primary key
-- `city` - City name
-- `state` - State abbreviation
-- `quarter` - Quarter (1-4)
-- `year` - Year (2023-2025)
-- `price_per_sqft` - Average price per square foot
-
-#### `listings` (Updated)
-Added coordinate columns for map functionality:
-- `lat` - Latitude coordinate
-- `lng` - Longitude coordinate
-
-## Getting Started
-
-1. Install dependencies:
-   ```bash
-   cd backend
-   npm install
-   ```
-
-2. Initialize database:
-   ```bash
-   sqlite3 backend/db/ownit.db < backend/db/schema.sql
-   sqlite3 backend/db/ownit.db < backend/db/seed.sql
-   ```
-
-3. Start the server:
-   ```bash
-   npm start
-   ```
-
-4. Open `http://localhost:3000` in your browser
-
-## Available Cities for Market Trends
-
-Market trend data is available for the following cities:
-- New Jersey: Edison, Newark, Jersey City, Woodbridge, Trenton
-- New York: New York City, Buffalo, Rochester
-- Massachusetts: Boston, Cambridge
-- Florida: Miami, Orlando, Tampa
-- California: Los Angeles, San Francisco, San Diego
-- Texas: Houston, Dallas, Austin
-- And more...
-
-## License
-
-GPLv2 or later
+Legacy WordPress plugin files (`ci_ownit_property_calculator.php`, old `readme.txt` content) are not part of the running application.
