@@ -7,12 +7,16 @@
  *              for bedrooms, bathrooms, and property age.
  *
  * Endpoints:
- *   GET /api/ai/valuation?listingId=   - Estimated value for a listing
- *   GET /api/ai/market-trends?city=&state= - Historical market trend data
+ *   GET  /api/ai/valuation?listingId=        - Estimated value for a listing
+ *   GET  /api/ai/market-trends?city=&state=  - Historical market trend data
+ *   POST /api/ai/home-value                  - Estimate value from homeowner inputs
+ *   POST /api/ai/home-value/request-agent    - Seller lead for a listing valuation
  */
 
 import express from "express";
 import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
+import { authenticateToken } from "./authRoutes.js";
+import { estimatePropertyValue } from "../services/valuationService.js";
 
 const router = express.Router();
 
@@ -54,159 +58,35 @@ router.get("/valuation", async (req, res) => {
       });
     }
 
-    // Get average price per sqft for this city/state from market trends (latest quarter)
-    const marketData = await mongo.market_trends()
-      .findOne(
-        { city: { $regex: new RegExp(`^${listing.city}$`, "i") }, state: { $regex: new RegExp(`^${listing.state}$`, "i") } },
-        { sort: { year: -1, quarter: -1 } }
-      );
+    const estimate = await estimatePropertyValue({
+      city: listing.city,
+      state: listing.state,
+      sqft: listing.sqft,
+      bedrooms: listing.bedrooms,
+      bathrooms: listing.bathrooms,
+      year_built: listing.year_built,
+      kind: listing.kind,
+      type: listing.type,
+      excludeId: listing.id,
+    });
 
-    // If no market data, calculate from similar listings
-    let avgPricePerSqft;
-    let dataSource;
-    
-    if (marketData) {
-      avgPricePerSqft = marketData.price_per_sqft;
-      dataSource = "market_trends";
-    } else {
-      // Calculate from comparable listings in the same city/state
-      const comps = await mongo.listings()
-        .find({
-          city: { $regex: new RegExp(`^${listing.city}$`, "i") },
-          state: { $regex: new RegExp(`^${listing.state}$`, "i") },
-          sqft: { $exists: true, $gt: 0 },
-          kind: listing.kind
-        })
-        .limit(10)
-        .toArray();
-
-      if (comps.length === 0) {
-        // Fallback: use state-wide average
-        const stateComps = await mongo.listings()
-          .find({
-            state: { $regex: new RegExp(`^${listing.state}$`, "i") },
-            sqft: { $exists: true, $gt: 0 },
-            kind: listing.kind
-          })
-          .limit(20)
-          .toArray();
-
-        if (stateComps.length === 0) {
-          return res.status(400).json({ 
-            error: "Not enough comparable data to estimate value" 
-          });
-        }
-
-        const totalPpsf = stateComps.reduce((sum, c) => sum + (c.price / c.sqft), 0);
-        avgPricePerSqft = totalPpsf / stateComps.length;
-        dataSource = "state_average";
-      } else {
-        const totalPpsf = comps.reduce((sum, c) => sum + (c.price / c.sqft), 0);
-        avgPricePerSqft = totalPpsf / comps.length;
-        dataSource = "local_comparables";
-      }
+    if (!estimate) {
+      return res.status(400).json({ error: "Not enough comparable data to estimate value" });
     }
-
-    // Base estimated value
-    let estimatedValue = listing.sqft * avgPricePerSqft;
-
-    // Adjustments based on property features
-    const adjustments = [];
-
-    // Bedroom adjustment: +2% per bedroom above 2, -2% per bedroom below 2
-    const bedroomDiff = listing.bedrooms - 2;
-    if (bedroomDiff !== 0) {
-      const bedroomAdj = bedroomDiff * 0.02;
-      estimatedValue *= (1 + bedroomAdj);
-      adjustments.push({
-        factor: "bedrooms",
-        description: `${bedroomDiff > 0 ? '+' : ''}${bedroomDiff} bedroom${Math.abs(bedroomDiff) !== 1 ? 's' : ''} vs baseline`,
-        percent: bedroomAdj * 100
-      });
-    }
-
-    // Bathroom adjustment: +1.5% per bathroom above 2, -1.5% per bathroom below 2  
-    const bathroomDiff = listing.bathrooms - 2;
-    if (bathroomDiff !== 0) {
-      const bathroomAdj = bathroomDiff * 0.015;
-      estimatedValue *= (1 + bathroomAdj);
-      adjustments.push({
-        factor: "bathrooms",
-        description: `${bathroomDiff > 0 ? '+' : ''}${bathroomDiff} bathroom${Math.abs(bathroomDiff) !== 1 ? 's' : ''} vs baseline`,
-        percent: bathroomAdj * 100
-      });
-    }
-
-    // Age adjustment: -0.3% per year for homes older than 20 years
-    if (listing.year_built) {
-      const currentYear = new Date().getFullYear();
-      const age = currentYear - listing.year_built;
-      if (age > 20) {
-        const ageAdj = Math.min((age - 20) * -0.003, -0.15); // Max -15% penalty
-        estimatedValue *= (1 + ageAdj);
-        adjustments.push({
-          factor: "age",
-          description: `Property is ${age} years old`,
-          percent: ageAdj * 100
-        });
-      }
-    }
-
-    // Get comparable listings used
-    const compsUsed = await mongo.listings()
-      .find({
-        city: { $regex: new RegExp(`^${listing.city}$`, "i") },
-        state: { $regex: new RegExp(`^${listing.state}$`, "i") },
-        sqft: { $exists: true, $gt: 0 },
-        id: { $ne: listing.id },
-        kind: listing.kind
-      })
-      .sort({ sqft: 1 })
-      .limit(3)
-      .toArray();
-
-    // Round to nearest $1000
-    estimatedValue = Math.round(estimatedValue / 1000) * 1000;
-
-    // Calculate confidence based on data source
-    let confidence = dataSource === "market_trends" ? "high" : 
-                     dataSource === "local_comparables" ? "medium" : "low";
-
-    // Build explanation
-    const isRental = listing.kind === "rental";
-    const priceLabel = isRental ? "rent" : "value";
-    
-    let explanation = `Based on ${isRental ? 'rental' : 'market'} data for ${listing.city}, ${listing.state}, `;
-    explanation += `the average price per square foot is $${Math.round(avgPricePerSqft)}/sqft. `;
-    explanation += `For this ${listing.sqft.toLocaleString()} sqft ${listing.type.toLowerCase()}, `;
-    explanation += `the base ${priceLabel} would be $${(listing.sqft * avgPricePerSqft).toLocaleString(undefined, {maximumFractionDigits: 0})}. `;
-    
-    if (adjustments.length > 0) {
-      explanation += `After adjusting for ${adjustments.map(a => a.factor).join(', ')}, `;
-    }
-    explanation += `the estimated ${priceLabel} is $${estimatedValue.toLocaleString()}.`;
 
     res.json({
       listingId: listing.id,
-      estimatedValue,
+      estimatedValue: estimate.estimatedValue,
       listedPrice: listing.price,
-      difference: estimatedValue - listing.price,
-      differencePercent: ((estimatedValue - listing.price) / listing.price * 100).toFixed(1),
-      avgPricePerSqft: Math.round(avgPricePerSqft),
-      sqft: listing.sqft,
-      confidence,
-      dataSource,
-      adjustments,
-      explanation,
-      compsUsed: compsUsed.map(c => ({
-        id: c.id,
-        address: c.address,
-        city: c.city,
-        state: c.state,
-        price: c.price,
-        sqft: c.sqft,
-        pricePerSqft: Math.round(c.price / c.sqft)
-      }))
+      difference: estimate.estimatedValue - listing.price,
+      differencePercent: ((estimate.estimatedValue - listing.price) / listing.price * 100).toFixed(1),
+      avgPricePerSqft: estimate.avgPricePerSqft,
+      sqft: estimate.sqft,
+      confidence: estimate.confidence,
+      dataSource: estimate.dataSource,
+      adjustments: estimate.adjustments,
+      explanation: estimate.explanation,
+      compsUsed: estimate.comps,
     });
   } catch (error) {
     console.error("Valuation error:", error);
@@ -323,6 +203,91 @@ router.get("/market-trends", async (req, res) => {
   } catch (error) {
     console.error("Market trends error:", error);
     res.status(500).json({ error: "Failed to get market trends" });
+  }
+});
+
+/**
+ * POST /api/ai/home-value
+ * Estimates a home's value from homeowner-provided details (no listing needed).
+ * Public endpoint - no auth required.
+ *
+ * Body: { address?, city, state, sqft, bedrooms?, bathrooms?, year_built?, property_type? }
+ */
+router.post("/home-value", async (req, res) => {
+  try {
+    await ensureInitialized();
+
+    const { city, state, sqft, bedrooms, bathrooms, year_built, property_type } = req.body || {};
+
+    if (!city || !state || !sqft) {
+      return res.status(400).json({ error: "city, state, and sqft are required" });
+    }
+
+    const sqftNum = Number(sqft);
+    if (Number.isNaN(sqftNum) || sqftNum <= 0) {
+      return res.status(400).json({ error: "sqft must be a positive number" });
+    }
+
+    const estimate = await estimatePropertyValue({
+      city: String(city).trim(),
+      state: String(state).trim().toUpperCase(),
+      sqft: sqftNum,
+      bedrooms: bedrooms !== undefined && bedrooms !== "" ? Number(bedrooms) : undefined,
+      bathrooms: bathrooms !== undefined && bathrooms !== "" ? Number(bathrooms) : undefined,
+      year_built: year_built ? Number(year_built) : undefined,
+      kind: "sale",
+      type: property_type || "home",
+    });
+
+    if (!estimate) {
+      return res.status(404).json({
+        error: `We don't have enough nearby data for ${city}, ${state} yet. Connect with an agent for a full market analysis.`,
+        available: false,
+      });
+    }
+
+    res.json({ available: true, ...estimate });
+  } catch (error) {
+    console.error("Home value error:", error);
+    res.status(500).json({ error: "Failed to estimate home value" });
+  }
+});
+
+/**
+ * POST /api/ai/home-value/request-agent
+ * Creates a seller lead so an agent can follow up about listing the home.
+ * Login required.
+ *
+ * Body: { property: {...}, estimatedValue?, message? }
+ */
+router.post("/home-value/request-agent", authenticateToken, async (req, res) => {
+  try {
+    await ensureInitialized();
+
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+    const { property, estimatedValue, message } = req.body || {};
+
+    await mongo.leads().insertOne({
+      user_id: req.user.id,
+      user_name: req.user.name || "Unknown",
+      user_email: req.user.email || "",
+      source: "seller_valuation",
+      source_listing_id: null,
+      stage: "new",
+      seller_property: property || null,
+      seller_estimate: estimatedValue ?? null,
+      message: message || "I'd like to talk to an agent about selling my home.",
+      created_at: new Date().toISOString(),
+    });
+
+    res.json({
+      ok: true,
+      message: "Your request has been sent. An agent will reach out about listing your home soon!",
+    });
+  } catch (error) {
+    console.error("Seller lead error:", error);
+    res.status(500).json({ error: "Failed to submit request" });
   }
 });
 

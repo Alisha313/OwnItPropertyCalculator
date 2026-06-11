@@ -3600,3 +3600,109 @@ html.light ::-webkit-scrollbar-thumb:hover {
   background: rgba(0,0,0,.25);
 }
 
+/* ─────────────────────────────────────────────
+   Seller hub: "What's My Home Worth?"
+   ───────────────────────────────────────────── */
+.sell-container { display:flex; flex-direction:column; gap:20px; }
+.sell-hero { text-align:center; padding:24px 0 4px; }
+.sell-hero__title { margin:10px 0 8px; font-size:34px; letter-spacing:-.6px; }
+.sell-hero__sub { color:var(--muted); max-width:680px; margin:0 auto; line-height:1.6; }
+
+.sell-layout { display:grid; grid-template-columns:minmax(280px, 360px) minmax(0, 1fr); gap:24px; align-items:start; }
+@media (max-width:900px) { .sell-layout { grid-template-columns:1fr; } }
+.sell-form { position:sticky; top:16px; }
+.sell-form__title { font-weight:700; font-size:18px; margin-bottom:14px; }
+.sell-form__grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; }
+.sell-field--full { grid-column:1 / -1; }
+.sell-form .field label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
+.sell-form .field input, .sell-form .field select,
+.sell-netproceeds .field input {
+  width:100%; padding:10px 12px; background:var(--card2);
+  border:1px solid var(--line); border-radius:10px; color:var(--text); font-size:14px;
+}
+.sell-form__submit { width:100%; margin-top:16px; }
+.sell-loading { text-align:center; color:var(--muted); padding:24px; }
+
+.sell-results { display:flex; flex-direction:column; gap:18px; }
+.sell-results:empty { display:none; }
+
+.sell-estimate-card { border:1px solid var(--accent); }
+.sell-estimate__label { color:var(--muted); font-size:14px; }
+.sell-estimate__value { font-size:42px; font-weight:800; letter-spacing:-1px; margin:6px 0; background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.sell-estimate__range { color:var(--text); font-weight:600; margin-bottom:10px; }
+.sell-estimate__explain { margin:12px 0 0; font-size:14px; }
+.sell-disclaimer { margin-top:10px; font-size:12px; color:var(--muted); font-style:italic; }
+.sell-note { margin-top:12px; padding:10px 14px; background:rgba(255,217,61,.1); border:1px solid rgba(255,217,61,.3); border-radius:10px; font-size:13px; color:var(--text); }
+
+.sell-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:12px; font-weight:700; }
+.sell-badge--high { background:rgba(107,203,119,.15); color:#6bcb77; }
+.sell-badge--medium { background:rgba(41,215,255,.15); color:var(--accent2); }
+.sell-badge--low { background:rgba(255,217,61,.15); color:#ffd93d; }
+
+.sell-stats-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+.sell-stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; text-align:center; }
+.sell-stat__value { font-size:22px; font-weight:800; }
+.sell-stat__label { font-size:12px; color:var(--muted); margin-top:4px; }
+
+.sell-section__title { font-weight:700; font-size:17px; margin-bottom:10px; }
+.sell-section__sub { margin:-4px 0 12px; font-size:13px; }
+
+.sell-prop-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
+.sell-prop-label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+
+.sell-breakdown { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+.sell-adj-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:10px; }
+.sell-adj-card { background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:12px; }
+.sell-adj-card__factor { display:block; font-size:11px; text-transform:uppercase; color:var(--accent); font-weight:700; }
+.sell-adj-card__desc { display:block; font-size:13px; margin:4px 0; }
+.sell-adj-card__pct { font-weight:800; font-size:15px; }
+
+.sell-ppsf-compare { margin-top:8px; }
+.sell-ppsf-compare__row { display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px; }
+.sell-ppsf-bar { height:8px; background:var(--card2); border-radius:999px; overflow:hidden; margin:8px 0; }
+.sell-ppsf-bar__fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--accent2)); border-radius:999px; }
+
+.sell-comp-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+.sell-comp-card { background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:14px; }
+.sell-comp-card__price { font-size:20px; font-weight:800; margin-bottom:4px; }
+.sell-comp-card__addr { font-weight:600; font-size:14px; }
+.sell-comp-card__meta { font-size:12px; color:var(--muted); margin-top:4px; }
+.sell-comp-card__details { display:flex; gap:10px; margin-top:8px; font-size:12px; flex-wrap:wrap; }
+.sell-comp-card__link { display:inline-block; margin-top:10px; font-size:12px; color:var(--accent); text-decoration:none; font-weight:600; }
+
+.sell-trend-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+.sell-trend-meta__label { font-weight:700; font-size:14px; }
+.sell-trend-meta__note { font-size:12px; color:var(--muted); }
+.sell-trend-stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+.sell-trend-stat { background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:10px 14px; text-align:center; min-width:100px; }
+.sell-trend-stat b { display:block; font-size:18px; }
+.sell-trend-stat span { font-size:11px; color:var(--muted); }
+.sell-trend-stat--up b { color:#6bcb77; }
+.sell-trend-stat--down b { color:var(--danger); }
+
+.sell-tips-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; }
+.sell-tip-card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+.sell-tip-card--accent { border-color:rgba(124,92,255,.4); background:rgba(124,92,255,.08); }
+.sell-tip-card__icon { font-size:24px; display:block; margin-bottom:8px; }
+.sell-tip-card b { display:block; margin-bottom:6px; }
+.sell-tip-card p { margin:0; font-size:13px; color:var(--muted); line-height:1.5; }
+.sell-table-wrap { overflow-x:auto; }
+.sell-table { width:100%; border-collapse:collapse; font-size:14px; }
+.sell-table th { text-align:left; color:var(--muted); font-weight:600; font-size:12px; padding:8px 10px; border-bottom:1px solid var(--line); }
+.sell-table td { padding:10px; border-bottom:1px solid var(--line); }
+.sell-trend { position:relative; min-height:200px; }
+
+.sell-net-result { margin-top:16px; }
+.sell-net-breakdown { display:flex; flex-direction:column; gap:6px; }
+.sell-net-total { display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding:14px; background:var(--card2); border:1px solid var(--accent); border-radius:12px; font-size:18px; }
+.sell-net-total b { font-size:22px; color:#6bcb77; }
+.sell-net-total.is-negative b { color:var(--danger); }
+
+.sell-cta__actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+
+@media (max-width:640px) {
+  .sell-form__grid { grid-template-columns:1fr; }
+  .sell-stats-row { grid-template-columns:repeat(2, 1fr); }
+  .sell-prop-grid { grid-template-columns:1fr 1fr; }
+}
+

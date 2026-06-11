@@ -124,6 +124,7 @@ const routes = {
   "/sales": () => ListingsPage("sale"),
   "/rentals": () => ListingsPage("rental"),
   "/mortgage": MortgagePage,
+  "/sell": SellPage,
   "/auth": AuthPage,
   "/contact": ContactPage,
   "/subscription": SubscriptionPage,
@@ -3346,10 +3347,499 @@ function monthlyHousingCost({
 function num(v) { return Number(v || 0); }
 function numOrNull(v) { return v === "" || v == null ? null : Number(v); }
 function round2(x) { return Math.round((x + Number.EPSILON) * 100) / 100; }
+/** Lazily loads Chart.js from CDN. Resolves true when available, false on failure. */
+function ensureChartJs() {
+  return new Promise((resolve) => {
+    if (typeof Chart !== "undefined") return resolve(true);
+    const existing = document.getElementById("chartjs-cdn");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(typeof Chart !== "undefined"));
+      existing.addEventListener("error", () => resolve(false));
+      return;
+    }
+    const s = document.createElement("script");
+    s.id = "chartjs-cdn";
+    s.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js";
+    s.onload = () => resolve(typeof Chart !== "undefined");
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+/** US states for select dropdowns (code + display name). */
+const US_STATES = [
+  { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" }, { code: "AZ", name: "Arizona" },
+  { code: "AR", name: "Arkansas" }, { code: "CA", name: "California" }, { code: "CO", name: "Colorado" },
+  { code: "CT", name: "Connecticut" }, { code: "DE", name: "Delaware" }, { code: "FL", name: "Florida" },
+  { code: "GA", name: "Georgia" }, { code: "HI", name: "Hawaii" }, { code: "ID", name: "Idaho" },
+  { code: "IL", name: "Illinois" }, { code: "IN", name: "Indiana" }, { code: "IA", name: "Iowa" },
+  { code: "KS", name: "Kansas" }, { code: "KY", name: "Kentucky" }, { code: "LA", name: "Louisiana" },
+  { code: "ME", name: "Maine" }, { code: "MD", name: "Maryland" }, { code: "MA", name: "Massachusetts" },
+  { code: "MI", name: "Michigan" }, { code: "MN", name: "Minnesota" }, { code: "MS", name: "Mississippi" },
+  { code: "MO", name: "Missouri" }, { code: "MT", name: "Montana" }, { code: "NE", name: "Nebraska" },
+  { code: "NV", name: "Nevada" }, { code: "NH", name: "New Hampshire" }, { code: "NJ", name: "New Jersey" },
+  { code: "NM", name: "New Mexico" }, { code: "NY", name: "New York" }, { code: "NC", name: "North Carolina" },
+  { code: "ND", name: "North Dakota" }, { code: "OH", name: "Ohio" }, { code: "OK", name: "Oklahoma" },
+  { code: "OR", name: "Oregon" }, { code: "PA", name: "Pennsylvania" }, { code: "RI", name: "Rhode Island" },
+  { code: "SC", name: "South Carolina" }, { code: "SD", name: "South Dakota" }, { code: "TN", name: "Tennessee" },
+  { code: "TX", name: "Texas" }, { code: "UT", name: "Utah" }, { code: "VT", name: "Vermont" },
+  { code: "VA", name: "Virginia" }, { code: "WA", name: "Washington" }, { code: "WV", name: "West Virginia" },
+  { code: "WI", name: "Wisconsin" }, { code: "WY", name: "Wyoming" }, { code: "DC", name: "Washington D.C." },
+];
+
+/** Reads query params from the current hash (e.g. #/sell?city=Miami&state=FL). */
+function hashQuery() {
+  const q = (location.hash || "").split("?")[1] || "";
+  return Object.fromEntries(new URLSearchParams(q));
+}
+
+/** Renders a line chart for valuation market trend data (from API or fetched). */
+async function renderValuationTrendChart(containerEl, trend, chartId = "sellTrendChart") {
+  const wrap = containerEl.querySelector(".sell-trend") || containerEl;
+  const canvas = wrap.querySelector("canvas") || containerEl.querySelector(`#${chartId}`);
+  const fallback = wrap.querySelector("[data-trend-fallback]") || containerEl.querySelector("#sellTrendFallback");
+  const summaryEl = wrap.querySelector("[data-trend-summary]");
+
+  if (!trend || !trend.available || !trend.series?.length) {
+    if (canvas) canvas.style.display = "none";
+    if (fallback) {
+      fallback.style.display = "block";
+      fallback.textContent = "Historical price trend data is not available for this area yet. Your estimate uses statewide sale averages.";
+    }
+    return;
+  }
+
+  if (summaryEl && trend.summary) {
+    const s = trend.summary;
+    const growthClass = s.growthPercent >= 0 ? "up" : "down";
+    summaryEl.innerHTML = `
+      <div class="sell-trend-meta">
+        <span class="sell-trend-meta__label">${escapeHtml(trend.label || "Area trend")}</span>
+        ${trend.scope === "regional" ? `<span class="sell-trend-meta__note">Regional benchmark — your city has limited trend history</span>` : ""}
+      </div>
+      <div class="sell-trend-stats">
+        <div class="sell-trend-stat sell-trend-stat--${growthClass}">
+          <b>${s.growthPercent >= 0 ? "+" : ""}${s.growthPercent}%</b><span>Since ${trend.series[0]?.label || "start"}</span>
+        </div>
+        <div class="sell-trend-stat"><b>$${s.endPrice}</b><span>Current $/sqft</span></div>
+        <div class="sell-trend-stat"><b>$${s.startPrice}</b><span>Start $/sqft</span></div>
+      </div>`;
+    summaryEl.style.display = "block";
+  }
+
+  const ok = await ensureChartJs();
+  if (!ok || !canvas) {
+    if (fallback) {
+      fallback.style.display = "block";
+      const s = trend.summary || {};
+      fallback.textContent = `$/sqft moved from $${s.startPrice} to $${s.endPrice} (${s.growthPercent >= 0 ? "+" : ""}${s.growthPercent}%).`;
+    }
+    return;
+  }
+
+  if (fallback) fallback.style.display = "none";
+  canvas.style.display = "block";
+  const isLight = document.documentElement.classList.contains("light");
+  new Chart(canvas, {
+    type: "line",
+    data: {
+      labels: trend.series.map(p => p.label),
+      datasets: [{
+        label: "$/sqft",
+        data: trend.series.map(p => p.pricePerSqft),
+        borderColor: "#7c5cff",
+        backgroundColor: "rgba(124, 92, 255, 0.12)",
+        fill: true,
+        tension: 0.35,
+        pointRadius: 4,
+        pointBackgroundColor: "#7c5cff",
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.05)" }, ticks: { color: isLight ? "#6b7280" : "#888", font: { size: 10 } } },
+        y: { grid: { color: isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.05)" }, ticks: { color: isLight ? "#6b7280" : "#888", font: { size: 10 }, callback: v => "$" + v } },
+      },
+    },
+  });
+}
+
+function buildValuationExtrasHtml(data, input) {
+  const area = data.areaStats || {};
+  const comps = data.comps || [];
+  const compsScope = data.compsScope || "city";
+  const areaScope = area.scope || "city";
+  const lowData = data.confidence === "low" || comps.length < 3;
+
+  const adjHtml = (data.adjustments || []).length
+    ? data.adjustments.map(a => `
+      <div class="sell-adj-card">
+        <span class="sell-adj-card__factor">${escapeHtml(a.factor)}</span>
+        <span class="sell-adj-card__desc">${escapeHtml(a.description)}</span>
+        <span class="sell-adj-card__pct">${a.percent >= 0 ? "+" : ""}${a.percent.toFixed(1)}%</span>
+      </div>`).join("")
+    : `<p class="card__muted">No feature adjustments — your home matches the baseline profile (2 bed / 2 bath).</p>`;
+
+  const compsNote = compsScope === "state"
+    ? `No active listings in ${escapeHtml(input.city)} — showing similar homes across ${escapeHtml(input.state)}.`
+    : `Active sale listings in ${escapeHtml(input.city)}, ${escapeHtml(input.state)}.`;
+
+  const compsCards = comps.length
+    ? comps.map(c => `
+      <article class="sell-comp-card">
+        <div class="sell-comp-card__price">${money(c.price)}</div>
+        <div class="sell-comp-card__addr">${escapeHtml(c.address || "Address on file")}</div>
+        <div class="sell-comp-card__meta">${escapeHtml(c.city)}, ${escapeHtml(c.state)} · ${Number(c.sqft).toLocaleString()} sqft</div>
+        <div class="sell-comp-card__details">
+          <span>$${c.pricePerSqft}/sqft</span>
+          <span>${c.bedrooms ?? "—"} bd</span>
+          <span>${c.bathrooms ?? "—"} ba</span>
+        </div>
+        ${c.id ? `<a class="sell-comp-card__link" href="#/listing/${encodeURIComponent(c.id)}">View listing →</a>` : ""}
+      </article>`).join("")
+    : `<p class="card__muted">No comparable listings found. Try a major city in your state for more matches.</p>`;
+
+  const areaLabel = areaScope === "state" ? `${escapeHtml(input.state)} statewide` : `${escapeHtml(input.city)}, ${escapeHtml(input.state)}`;
+  const yourPpsf = data.yourPricePerSqft || Math.round(data.estimatedValue / data.sqft);
+  const areaPpsf = area.avgPricePerSqft || data.avgPricePerSqft;
+  const ppsfPct = areaPpsf ? Math.min(100, Math.round((yourPpsf / areaPpsf) * 50)) : 50;
+
+  return `
+    <div class="card sell-summary-card">
+      <div class="card__body">
+        <div class="sell-section__title">Your property</div>
+        <div class="sell-prop-grid">
+          <div><span class="sell-prop-label">Location</span><b>${escapeHtml(input.city)}, ${escapeHtml(input.state)}</b></div>
+          ${input.address ? `<div><span class="sell-prop-label">Address</span><b>${escapeHtml(input.address)}</b></div>` : ""}
+          <div><span class="sell-prop-label">Size</span><b>${Number(input.sqft).toLocaleString()} sqft</b></div>
+          <div><span class="sell-prop-label">Beds / Baths</span><b>${input.bedrooms || "—"} / ${input.bathrooms || "—"}</b></div>
+          <div><span class="sell-prop-label">Year built</span><b>${input.year_built || "—"}</b></div>
+          <div><span class="sell-prop-label">Type</span><b>${escapeHtml(input.property_type || "Home")}</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__body">
+        <div class="sell-section__title">How we calculated your estimate</div>
+        <p class="card__muted" style="margin-bottom:12px;">Data source: <b>${escapeHtml(data.dataSourceLabel || data.dataSource)}</b></p>
+        <div class="sell-breakdown">
+          ${kv("Base value (sqft × area $/sqft)", money(data.baseValue || Math.round(data.sqft * data.avgPricePerSqft)))}
+          ${(data.adjustments || []).map(a => kv(a.description, `${a.percent >= 0 ? "+" : ""}${a.percent.toFixed(1)}%`)).join("")}
+          ${kv("OwnIt estimated value", money(data.estimatedValue))}
+        </div>
+        <div class="sell-adj-grid">${adjHtml}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__body">
+        <div class="sell-section__title">Your home vs. ${areaLabel}</div>
+        <div class="sell-ppsf-compare">
+          <div class="sell-ppsf-compare__row">
+            <span>Your est. $/sqft</span><b>$${yourPpsf}</b>
+          </div>
+          <div class="sell-ppsf-bar"><div class="sell-ppsf-bar__fill" style="width:${ppsfPct}%"></div></div>
+          <div class="sell-ppsf-compare__row">
+            <span>Area avg $/sqft</span><b>$${areaPpsf}</b>
+          </div>
+        </div>
+        ${area.minPrice && area.maxPrice ? `<p class="card__muted" style="margin-top:10px;">Active ${areaScope === "state" ? "state" : "city"} listings range from ${money(area.minPrice)} to ${money(area.maxPrice)}.</p>` : ""}
+      </div>
+    </div>
+
+    <div class="sell-stats-row">
+      <div class="sell-stat"><div class="sell-stat__value">$${data.avgPricePerSqft}</div><div class="sell-stat__label">Estimate $/sqft</div></div>
+      <div class="sell-stat"><div class="sell-stat__value">${area.medianPricePerSqft ? "$" + area.medianPricePerSqft : "$" + areaPpsf}</div><div class="sell-stat__label">Median $/sqft (${areaScope})</div></div>
+      <div class="sell-stat"><div class="sell-stat__value">${area.listingCount ?? 0}</div><div class="sell-stat__label">Active listings (${areaScope})</div></div>
+      <div class="sell-stat"><div class="sell-stat__value">${area.avgDaysOnMarket != null ? area.avgDaysOnMarket + "d" : "—"}</div><div class="sell-stat__label">Avg days on market</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card__body">
+        <div class="sell-section__title">Comparable homes</div>
+        <p class="card__muted sell-section__sub">${compsNote}</p>
+        <div class="sell-comp-grid">${compsCards}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__body">
+        <div class="sell-section__title">Area price trend</div>
+        <div data-trend-summary style="display:none;"></div>
+        <div class="sell-trend">
+          <canvas id="sellTrendChart" height="200"></canvas>
+          <div id="sellTrendFallback" data-trend-fallback class="card__muted" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sell-tips-grid">
+      <div class="sell-tip-card"><span class="sell-tip-card__icon">📋</span><b>Prepare to list</b><p>Gather tax records, HOA docs, and recent upgrades before meeting an agent.</p></div>
+      <div class="sell-tip-card"><span class="sell-tip-card__icon">🏷️</span><b>Price strategically</b><p>Homes priced within 5% of market value typically sell faster in most areas.</p></div>
+      <div class="sell-tip-card"><span class="sell-tip-card__icon">📸</span><b>Stage & photograph</b><p>Professional photos and light staging can increase showing requests significantly.</p></div>
+      ${lowData ? `<div class="sell-tip-card sell-tip-card--accent"><span class="sell-tip-card__icon">🤝</span><b>Get a full CMA</b><p>Limited data in ${escapeHtml(input.city)} — an agent can pull a detailed comparative market analysis.</p></div>` : ""}
+    </div>
+  `;
+}
+
+/**
+ * Seller hub: "What's My Home Worth?" — estimate value from area data,
+ * show comparables and market trend, then estimate net proceeds.
+ */
+function SellPage() {
+  const el = document.createElement("div");
+  el.className = "sell-container";
+
+  const prefill = hashQuery();
+  const stateOptions = US_STATES
+    .map(s => `<option value="${s.code}" ${prefill.state === s.code ? "selected" : ""}>${s.name}</option>`)
+    .join("");
+
+  el.innerHTML = `
+    <section class="sell-hero">
+      <div class="pill">For Homeowners</div>
+      <h1 class="sell-hero__title">What's My Home Worth?</h1>
+      <p class="sell-hero__sub">Thinking of selling? Get a free OwnIt estimate based on recent prices in your area, see comparable homes, and find out what you could walk away with.</p>
+    </section>
+
+    <div class="sell-layout">
+      <form id="sellForm" class="sell-form card">
+        <div class="card__body">
+          <div class="sell-form__title">Tell us about your home</div>
+          <div class="sell-form__grid">
+            <div class="field sell-field--full">
+              <label>Street Address </label>
+              <input id="svAddress" placeholder="123 Main St" value="${prefill.address ? escapeHtml(prefill.address) : ""}" />
+            </div>
+            <div class="field">
+              <label>City</label>
+              <input id="svCity" placeholder="" value="${prefill.city ? escapeHtml(prefill.city) : ""}" required />
+            </div>
+            <div class="field">
+              <label>State</label>
+              <select id="svState" required>
+                <option value="">-- Select --</option>
+                ${stateOptions}
+              </select>
+            </div>
+            <div class="field">
+              <label>Square Feet</label>
+              <input id="svSqft" type="number" min="1" placeholder="" required />
+            </div>
+            <div class="field">
+              <label>Property Type</label>
+              <select id="svType">
+                <option value="Single Family">Single Family</option>
+                <option value="Condo">Condo</option>
+                <option value="Townhouse">Townhouse</option>
+                <option value="Multi-Family">Multi-Family</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Bedrooms</label>
+              <input id="svBeds" type="number" min="0" placeholder="" />
+            </div>
+            <div class="field">
+              <label>Bathrooms</label>
+              <input id="svBaths" type="number" min="0" step="0.5" placeholder="" />
+            </div>
+            <div class="field">
+              <label>Year Built</label>
+              <input id="svYear" type="number" min="1800" max="${new Date().getFullYear()}" placeholder="" />
+            </div>
+          </div>
+          <button type="submit" id="svSubmit" class="btn btn--primary sell-form__submit">Get My Estimate</button>
+        </div>
+      </form>
+
+      <div id="sellResults" class="sell-results"></div>
+    </div>
+  `;
+
+  const form = el.querySelector("#sellForm");
+  const resultsEl = el.querySelector("#sellResults");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await runEstimate();
+  });
+
+  async function runEstimate() {
+    const input = {
+      address: el.querySelector("#svAddress").value.trim(),
+      city: el.querySelector("#svCity").value.trim(),
+      state: el.querySelector("#svState").value,
+      sqft: el.querySelector("#svSqft").value,
+      property_type: el.querySelector("#svType").value,
+      bedrooms: el.querySelector("#svBeds").value,
+      bathrooms: el.querySelector("#svBaths").value,
+      year_built: el.querySelector("#svYear").value,
+    };
+
+    if (!input.city || !input.state || !input.sqft) {
+      showToast("Please enter city, state, and square feet", "warning");
+      return;
+    }
+
+    const btn = el.querySelector("#svSubmit");
+    btn.disabled = true;
+    btn.textContent = "Estimating…";
+    resultsEl.innerHTML = `<div class="card"><div class="card__body sell-loading">Crunching recent sales in ${escapeHtml(input.city)}, ${escapeHtml(input.state)}…</div></div>`;
+
+    try {
+      const data = await apiFetch("/api/ai/home-value", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      renderResults(data, input);
+    } catch (err) {
+      resultsEl.innerHTML = `
+        <div class="card"><div class="card__body sell-empty">
+          <div class="sell-empty__title">We couldn't estimate that home yet</div>
+          <p class="card__muted">${escapeHtml(err.message || "Not enough nearby data.")}</p>
+          <a class="btn btn--primary" href="#/agent-chat">Talk to an agent</a>
+        </div></div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Get My Estimate";
+    }
+  }
+
+  function renderResults(data, input) {
+    const confLabel = data.confidence === "high" ? "High confidence"
+      : data.confidence === "medium" ? "Moderate confidence" : "Limited data";
+    const lowData = data.confidence === "low" || !data.comps || data.comps.length < 3;
+
+    resultsEl.innerHTML = `
+      <div class="card sell-estimate-card">
+        <div class="card__body">
+          <div class="sell-estimate__label">OwnIt estimate · ${escapeHtml(input.city)}, ${escapeHtml(input.state)}</div>
+          <div class="sell-estimate__value">${money(data.estimatedValue)}</div>
+          <div class="sell-estimate__range">Likely range: ${money(data.valueRange.low)} – ${money(data.valueRange.high)}</div>
+          <span class="sell-badge sell-badge--${data.confidence}">${confLabel}</span>
+          <p class="sell-estimate__explain card__muted">${escapeHtml(data.explanation)}</p>
+          <div class="sell-disclaimer">This is an OwnIt estimate for guidance only not an official appraisal.</div>
+          ${lowData ? `<div class="sell-note">Based on limited listings in ${escapeHtml(input.city)}. We expanded the search to ${escapeHtml(input.state)}-wide data where needed — connect with an agent for a full market analysis.</div>` : ""}
+        </div>
+      </div>
+
+      ${buildValuationExtrasHtml(data, input)}
+
+      <div class="card sell-netproceeds">
+        <div class="card__body">
+          <div class="sell-section__title">Estimate your net proceeds</div>
+          <p class="card__muted">See roughly what you'd walk away with after paying off your mortgage and selling costs.</p>
+          <div class="sell-form__grid">
+            <div class="field">
+              <label>Expected Sale Price</label>
+              <input id="npPrice" type="number" value="${data.estimatedValue}" />
+            </div>
+            <div class="field">
+              <label>Mortgage Balance Remaining</label>
+              <input id="npMortgage" type="number" value="0" placeholder="$0" />
+            </div>
+            <div class="field">
+              <label>Agent Commission (%)</label>
+              <input id="npCommission" type="number" step="0.1" value="6" />
+            </div>
+            <div class="field">
+              <label>Closing Costs (%)</label>
+              <input id="npClosing" type="number" step="0.1" value="2" />
+            </div>
+          </div>
+          <div id="npResult" class="sell-net-result"></div>
+        </div>
+      </div>
+
+      <div class="card sell-cta">
+        <div class="card__body">
+          <div class="sell-section__title">Ready to sell?</div>
+          <p class="card__muted">Connect with an OwnIt agent to get a full market analysis and list your home.</p>
+          <div class="sell-cta__actions">
+            <button id="sellContactBtn" class="btn btn--primary">Talk to an agent about listing</button>
+            <a class="btn" href="#/sales?state=${encodeURIComponent(input.state)}&city=${encodeURIComponent(input.city)}">Browse homes in ${escapeHtml(input.city)}</a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    renderValuationTrendChart(resultsEl, data.marketTrend);
+    bindNetProceeds();
+    el.querySelector("#sellContactBtn").addEventListener("click", (e) => requestAgent(input, data, e.currentTarget));
+
+    resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function bindNetProceeds() {
+    const inputs = ["#npPrice", "#npMortgage", "#npCommission", "#npClosing"].map(id => el.querySelector(id));
+    const resultEl = el.querySelector("#npResult");
+
+    function recalc() {
+      const price = Number(el.querySelector("#npPrice").value) || 0;
+      const mortgage = Number(el.querySelector("#npMortgage").value) || 0;
+      const commissionPct = Number(el.querySelector("#npCommission").value) || 0;
+      const closingPct = Number(el.querySelector("#npClosing").value) || 0;
+
+      const commission = price * (commissionPct / 100);
+      const closing = price * (closingPct / 100);
+      const net = price - mortgage - commission - closing;
+
+      resultEl.innerHTML = `
+        <div class="sell-net-breakdown">
+          ${kv("Sale price", money(price))}
+          ${kv("Mortgage payoff", "− " + money(mortgage))}
+          ${kv(`Agent commission (${commissionPct}%)`, "− " + money(commission))}
+          ${kv(`Closing costs (${closingPct}%)`, "− " + money(closing))}
+        </div>
+        <div class="sell-net-total ${net < 0 ? "is-negative" : ""}">
+          <span>Estimated net proceeds</span>
+          <b>${money(net)}</b>
+        </div>
+      `;
+    }
+
+    inputs.forEach(i => i && i.addEventListener("input", recalc));
+    recalc();
+  }
+
+  async function requestAgent(input, estimate, btn) {
+    if (!currentUser) {
+      showToast("Please log in to contact an agent", "warning");
+      location.hash = "#/auth";
+      return;
+    }
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "Sending…";
+    try {
+      const res = await apiFetch("/api/ai/home-value/request-agent", {
+        method: "POST",
+        body: JSON.stringify({
+          property: input,
+          estimatedValue: estimate.estimatedValue,
+        }),
+      });
+      showToast(res.message || "Request sent! An agent will reach out soon.", "success");
+      btn.textContent = "Request sent ✓";
+    } catch (err) {
+      showToast(err.message || "Failed to send request", "error");
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+
+  return el;
+}
+
 function money(n, isRent = false) {
   const v = Number(n || 0);
-  const s = v.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  return isRent ? `$${s}/mo` : `$${s}`;
+  const s = Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const sign = v < 0 ? "-" : "";
+  return isRent ? `${sign}$${s}/mo` : `${sign}$${s}`;
 }
 function cap(s) { return (s || "").charAt(0).toUpperCase() + (s || "").slice(1); }
 function kv(k, v) {

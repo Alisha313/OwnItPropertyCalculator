@@ -1601,3 +1601,53 @@
 :root.light .lead-drawer {
   background: #fff;
 }
+
+/* ─── Home Values (agent seller valuation tool) ─── */
+.hv-grid { display:grid; grid-template-columns:minmax(0,360px) minmax(0,1fr); gap:20px; align-items:start; margin-bottom:24px; }
+.hv-form__title { margin:0 0 12px; font-size:1rem; }
+.hv-results:empty { display:none; }
+.hv-estimate { background:var(--card2,#0f1730); border:1px solid var(--accent,#7c5cff); border-radius:14px; padding:18px; }
+.hv-estimate__label { font-size:0.8rem; opacity:0.7; }
+.hv-estimate__value { font-size:2rem; font-weight:800; letter-spacing:-1px; margin:4px 0; }
+.hv-estimate__range { font-weight:600; opacity:0.85; }
+.hv-estimate__explain { font-size:0.85rem; opacity:0.75; margin:10px 0 0; line-height:1.5; }
+.hv-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
+.hv-stat { background:var(--card,#121a33); border:1px solid var(--border,rgba(255,255,255,.08)); border-radius:10px; padding:12px; text-align:center; }
+.hv-stat b { display:block; font-size:1.1rem; }
+.hv-stat span { font-size:0.7rem; opacity:0.6; }
+.hv-subtitle { margin:18px 0 8px; font-size:0.95rem; }
+.hv-trend { position:relative; min-height:180px; }
+.hv-leads { margin-top:8px; }
+.hv-leads-empty { padding:16px; background:var(--card2,#0f1730); border:1px dashed var(--border,rgba(255,255,255,.12)); border-radius:12px; }
+.hv-leads-empty p { margin:0 0 10px; }
+.hv-leads-tips { margin:12px 0 0; padding-left:20px; font-size:0.85rem; opacity:0.85; line-height:1.6; }
+
+.seller-tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:0.65rem; font-weight:700; background:rgba(16,185,129,.18); color:#10b981; vertical-align:middle; }
+.seller-tag--high { background:rgba(107,203,119,.18); color:#6bcb77; }
+.seller-tag--medium { background:rgba(41,215,255,.18); color:#29d7ff; }
+.seller-tag--low { background:rgba(255,217,61,.18); color:#ffd93d; }
+
+.seller-detail { display:flex; flex-direction:column; gap:6px; }
+.seller-detail__row { display:flex; justify-content:space-between; gap:10px; font-size:0.85rem; }
+.seller-detail__row span { opacity:0.6; }
+
+.hv-estimate__source { font-size:0.78rem; opacity:0.65; margin-top:8px; }
+.hv-detail-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:14px 0; padding:12px; background:var(--card2,#0f1730); border-radius:10px; border:1px solid var(--border,rgba(255,255,255,.08)); }
+.hv-detail-grid span { display:block; font-size:0.72rem; opacity:0.6; }
+.hv-detail-grid b { font-size:0.9rem; }
+.hv-comp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; margin-bottom:14px; }
+.hv-comp-card { padding:12px; background:var(--card2,#0f1730); border:1px solid var(--border,rgba(255,255,255,.08)); border-radius:10px; }
+.hv-comp-card__price { font-size:1.15rem; font-weight:800; margin-bottom:4px; }
+.hv-comp-card__meta { font-size:0.75rem; opacity:0.65; margin-top:2px; }
+.hv-trend-summary { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px; font-size:0.85rem; }
+.hv-trend-label { font-weight:600; }
+.hv-trend-growth { padding:2px 8px; border-radius:999px; font-weight:700; font-size:0.75rem; }
+.hv-trend-growth--up { background:rgba(16,185,129,.15); color:#10b981; }
+.hv-trend-growth--down { background:rgba(239,68,68,.15); color:#ef4444; }
+.hv-trend-prices { opacity:0.7; }
+.hv-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+.hv-diff--high { color:#f59e0b; font-weight:600; }
+.hv-diff--low { color:#10b981; font-weight:600; }
+.agent-table--compact td, .agent-table--compact th { padding:6px 8px; font-size:0.82rem; }
+
+@media (max-width:880px) { .hv-grid { grid-template-columns:1fr; } .hv-stats { grid-template-columns:repeat(2,1fr); } }

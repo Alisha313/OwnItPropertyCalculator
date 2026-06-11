@@ -35,6 +35,7 @@ const PAGE_TITLES = {
   "/leads": "Clients",
   "/listings": "My Listings",
   "/listings/new": "New Listing",
+  "/home-values": "Home Values",
   "/chats": "Inbox",
   "/appointments": "Showings",
   "/settings": "Settings",
@@ -45,6 +46,7 @@ const routes = {
   "/leads": LeadsPage,
   "/listings": ListingsPage,
   "/listings/new": () => ListingFormPage(),
+  "/home-values": HomeValuesPage,
   "/chats": ChatsPage,
   "/appointments": AppointmentsPage,
   "/settings": SettingsPage,
@@ -262,6 +264,19 @@ async function loadLeadDrawer(id) {
         </div>
         ${lead.source_listing_label ? `<p class="lead-drawer__source">Interested in: ${esc(lead.source_listing_label)}</p>` : ""}
       </div>
+      ${lead.source === "seller_valuation" && lead.seller_property ? `
+      <div class="lead-drawer__section">
+        <h3>Seller Property</h3>
+        <div class="seller-detail">
+          ${lead.seller_property.address ? `<div class="seller-detail__row"><span>Address</span><b>${esc(lead.seller_property.address)}</b></div>` : ""}
+          <div class="seller-detail__row"><span>Location</span><b>${esc(lead.seller_property.city || "")}, ${esc(lead.seller_property.state || "")}</b></div>
+          <div class="seller-detail__row"><span>Size</span><b>${lead.seller_property.sqft ? Number(lead.seller_property.sqft).toLocaleString() + " sqft" : "—"}</b></div>
+          <div class="seller-detail__row"><span>Beds / Baths</span><b>${lead.seller_property.bedrooms || "—"} / ${lead.seller_property.bathrooms || "—"}</b></div>
+          <div class="seller-detail__row"><span>Year Built</span><b>${lead.seller_property.year_built || "—"}</b></div>
+          ${lead.seller_estimate ? `<div class="seller-detail__row"><span>OwnIt estimate</span><b>${moneyFmt(lead.seller_estimate)}</b></div>` : ""}
+        </div>
+        <button type="button" class="btn btn--primary btn-sm" id="drawerCreateListing" style="margin-top:10px;">Create listing from this home</button>
+      </div>` : ""}
       <div class="lead-drawer__section">
         <h3>Chat History</h3>
         <div class="lead-drawer__chat" id="drawerChat">
@@ -311,6 +326,22 @@ async function loadLeadDrawer(id) {
     body.querySelector("#drawerStageNext")?.addEventListener("click", () => {
       const i = STAGES.indexOf(lead.stage);
       if (i < STAGES.length - 1) updateLeadStage(STAGES[i + 1]).catch(err => showToast(err.message, "error"));
+    });
+
+    body.querySelector("#drawerCreateListing")?.addEventListener("click", () => {
+      const p = lead.seller_property || {};
+      const params = new URLSearchParams();
+      if (p.address) params.set("address", p.address);
+      if (p.city) params.set("city", p.city);
+      if (p.state) params.set("state", p.state);
+      if (p.sqft) params.set("sqft", p.sqft);
+      if (p.bedrooms) params.set("bedrooms", p.bedrooms);
+      if (p.bathrooms) params.set("bathrooms", p.bathrooms);
+      if (p.year_built) params.set("year_built", p.year_built);
+      if (p.property_type) params.set("type", p.property_type);
+      if (lead.seller_estimate) params.set("price", lead.seller_estimate);
+      closeLeadDrawer();
+      location.hash = `#/listings/new?${params.toString()}`;
     });
 
     body.querySelector("#drawerAddNoteBtn").addEventListener("click", async () => {
@@ -605,10 +636,10 @@ function renderPipeline(el, leads) {
         ${items.map(l => `
           <div class="pipeline-card pipeline-card--draggable" draggable="true" data-lead="${l._id}" data-stage="${l.stage}">
             <div class="pipeline-card__accent"></div>
-            <div class="pipeline-card__name">${esc(l.user_name)}</div>
+            <div class="pipeline-card__name">${esc(l.user_name)}${l.source === "seller_valuation" ? ` <span class="seller-tag">Seller</span>` : ""}</div>
             <div class="pipeline-card__meta">${esc(l.user_email)}</div>
             <div class="pipeline-card__meta">${fmtDate(l.created_at)}</div>
-            ${l.source_listing_label ? `<div class="pipeline-card__property">${esc(l.source_listing_label)}</div>` : ""}
+            ${l.source === "seller_valuation" && l.seller_property ? `<div class="pipeline-card__property">Wants to sell: ${esc(l.seller_property.city || "")}, ${esc(l.seller_property.state || "")}${l.seller_estimate ? ` · ${moneyFmt(l.seller_estimate)}` : ""}</div>` : (l.source_listing_label ? `<div class="pipeline-card__property">${esc(l.source_listing_label)}</div>` : "")}
             <div class="pipeline-card__footer">
               <button type="button" class="pipeline-card__open" data-lead="${l._id}">View Client →</button>
             </div>
@@ -878,7 +909,21 @@ function ListingFormPage(editId) {
       <div class="form-row"><div class="form-group"><label>Year Built</label><input type="number" id="fYear" min="1800" max="2030" /></div><div class="form-group"><label>Image URL</label><input id="fImage" placeholder="https://..." /></div></div>
       <div class="form-row"><div class="form-group"><label>Latitude</label><input type="number" id="fLat" step="0.0001" /></div><div class="form-group"><label>Longitude</label><input type="number" id="fLng" step="0.0001" /></div></div>
       <div id="formError" class="form-error"></div><button type="submit" class="btn btn--primary">${isEdit ? "Update Listing" : "Create Listing"}</button></form>`;
-  if (isEdit) loadListingForEdit(el, editId);
+  if (isEdit) {
+    loadListingForEdit(el, editId);
+  } else {
+    const params = new URLSearchParams((location.hash.split("?")[1]) || "");
+    const setVal = (sel, key) => { const v = params.get(key); if (v) el.querySelector(sel).value = v; };
+    setVal("#fType", "type");
+    setVal("#fAddress", "address");
+    setVal("#fCity", "city");
+    setVal("#fState", "state");
+    setVal("#fPrice", "price");
+    setVal("#fSqft", "sqft");
+    setVal("#fBeds", "bedrooms");
+    setVal("#fBaths", "bathrooms");
+    setVal("#fYear", "year_built");
+  }
   el.querySelector("#listingForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const body = {
@@ -1193,6 +1238,301 @@ function SettingsPage() {
     <button type="button" class="btn btn--ghost" id="settingsLogout" style="margin-left:0.5rem;">Logout</button></div>`);
   el.querySelector("#settingsLogout").addEventListener("click", logout);
   return el;
+}
+
+/** Lazily loads Chart.js from CDN. Resolves true when available. */
+function ensureChartJs() {
+  return new Promise((resolve) => {
+    if (typeof Chart !== "undefined") return resolve(true);
+    const existing = document.getElementById("chartjs-cdn");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(typeof Chart !== "undefined"));
+      existing.addEventListener("error", () => resolve(false));
+      return;
+    }
+    const s = document.createElement("script");
+    s.id = "chartjs-cdn";
+    s.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js";
+    s.onload = () => resolve(typeof Chart !== "undefined");
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+const AGENT_US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
+];
+
+/**
+ * Agent "Home Values" tool: run a seller valuation for a client and review
+ * incoming seller leads.
+ */
+function HomeValuesPage() {
+  const stateOptions = AGENT_US_STATES.map(s => `<option value="${s}">${s}</option>`).join("");
+  const el = renderPageShell("Home Values", "", `
+    <p class="pipeline-tip">Run an instant home value estimate for a seller, then review homeowners who asked for a listing consultation.</p>
+    <div class="hv-grid">
+      <form id="hvForm" class="agent-form hv-form">
+        <h3 class="hv-form__title">Estimate a home's value</h3>
+        <div class="form-row">
+          <div class="form-group"><label>City</label><input id="hvCity" placeholder="" required /></div>
+          <div class="form-group"><label>State</label><select id="hvState" required><option value="">--</option>${stateOptions}</select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Square Feet</label><input id="hvSqft" type="number" min="1" required /></div>
+          <div class="form-group"><label>Type</label><input id="hvType" placeholder="Single Family" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Bedrooms</label><input id="hvBeds" type="number" min="0" /></div>
+          <div class="form-group"><label>Bathrooms</label><input id="hvBaths" type="number" min="0" step="0.5" /></div>
+        </div>
+        <div class="form-group"><label>Year Built</label><input id="hvYear" type="number" min="1800" max="${new Date().getFullYear()}" /></div>
+        <button type="submit" class="btn btn--primary" id="hvSubmit">Run Estimate</button>
+      </form>
+      <div id="hvResults" class="hv-results"></div>
+    </div>
+    <div class="hv-market-compare card" style="margin-top:20px;">
+      <div class="card__body">
+        <h3 class="hv-form__title">Area pricing snapshot</h3>
+        <p class="pipeline-tip" style="margin-bottom:12px;">How active listing prices compare to market $/sqft benchmarks.</p>
+        <div id="hvMarketCompare"><div class="agent-loading agent-loading--skeleton"></div></div>
+      </div>
+    </div>
+    <div class="hv-leads">
+      <h3 class="hv-form__title">Seller leads</h3>
+      <div id="hvLeadsList"><div class="agent-loading agent-loading--skeleton"></div></div>
+    </div>
+  `);
+
+  const resultsEl = el.querySelector("#hvResults");
+  el.querySelector("#hvForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = {
+      city: el.querySelector("#hvCity").value.trim(),
+      state: el.querySelector("#hvState").value,
+      sqft: el.querySelector("#hvSqft").value,
+      property_type: el.querySelector("#hvType").value.trim() || "home",
+      bedrooms: el.querySelector("#hvBeds").value,
+      bathrooms: el.querySelector("#hvBaths").value,
+      year_built: el.querySelector("#hvYear").value,
+    };
+    if (!input.city || !input.state || !input.sqft) {
+      showToast("City, state, and square feet are required", "error");
+      return;
+    }
+    const btn = el.querySelector("#hvSubmit");
+    btn.disabled = true; btn.textContent = "Estimating…";
+    resultsEl.innerHTML = `<div class="agent-loading agent-loading--skeleton"></div>`;
+    try {
+      const data = await apiFetch("/api/ai/home-value", { method: "POST", body: JSON.stringify(input) });
+      renderHvResults(resultsEl, data, input);
+    } catch (err) {
+      resultsEl.innerHTML = `<p class="agent-empty">${esc(err.message || "Not enough data for this area.")}</p>`;
+    } finally {
+      btn.disabled = false; btn.textContent = "Run Estimate";
+    }
+  });
+
+  loadSellerLeads(el);
+  loadMarketComparison(el);
+  return el;
+}
+
+function renderHvResults(resultsEl, data, input) {
+  const confLabel = data.confidence === "high" ? "High confidence"
+    : data.confidence === "medium" ? "Moderate confidence" : "Limited data";
+  const comps = data.comps || [];
+  const area = data.areaStats || {};
+  const compsScope = data.compsScope || "city";
+  const areaScope = area.scope || "city";
+  const compsNote = compsScope === "state"
+    ? `No listings in ${esc(input.city)} — showing ${esc(input.state)} statewide comps.`
+    : `Listings in ${esc(input.city)}, ${esc(input.state)}.`;
+
+  const adjRows = (data.adjustments || []).map(a =>
+    `<tr><td>${esc(a.factor)}</td><td>${esc(a.description)}</td><td>${a.percent >= 0 ? "+" : ""}${a.percent.toFixed(1)}%</td></tr>`
+  ).join("") || `<tr><td colspan="3">No adjustments applied</td></tr>`;
+
+  resultsEl.innerHTML = `
+    <div class="hv-estimate">
+      <div class="hv-estimate__label">OwnIt estimate · ${esc(input.city)}, ${esc(input.state)}</div>
+      <div class="hv-estimate__value">${moneyFmt(data.estimatedValue)}</div>
+      <div class="hv-estimate__range">${moneyFmt(data.valueRange.low)} – ${moneyFmt(data.valueRange.high)}</div>
+      <span class="seller-tag seller-tag--${data.confidence}">${confLabel}</span>
+      <p class="hv-estimate__explain">${esc(data.explanation)}</p>
+      <p class="hv-estimate__source">Source: ${esc(data.dataSourceLabel || data.dataSource)}</p>
+    </div>
+
+    <div class="hv-detail-grid">
+      <div><span>Size</span><b>${Number(input.sqft).toLocaleString()} sqft</b></div>
+      <div><span>Beds / Baths</span><b>${input.bedrooms || "—"} / ${input.bathrooms || "—"}</b></div>
+      <div><span>Year built</span><b>${input.year_built || "—"}</b></div>
+      <div><span>Your $/sqft</span><b>$${data.yourPricePerSqft || Math.round(data.estimatedValue / data.sqft)}</b></div>
+    </div>
+
+    <h4 class="hv-subtitle">Value breakdown</h4>
+    <table class="agent-table agent-table--compact">
+      <tbody>
+        <tr><td>Base value</td><td>${moneyFmt(data.baseValue || data.estimatedValue)}</td></tr>
+        ${(data.adjustments || []).map(a => `<tr><td>${esc(a.description)}</td><td>${a.percent >= 0 ? "+" : ""}${a.percent.toFixed(1)}%</td></tr>`).join("")}
+        <tr><td><b>Estimated value</b></td><td><b>${moneyFmt(data.estimatedValue)}</b></td></tr>
+      </tbody>
+    </table>
+
+    <div class="hv-stats">
+      <div class="hv-stat"><b>$${data.avgPricePerSqft}</b><span>Est. $/sqft</span></div>
+      <div class="hv-stat"><b>${area.medianPricePerSqft ? "$" + area.medianPricePerSqft : "$" + (area.avgPricePerSqft || data.avgPricePerSqft)}</b><span>Median (${areaScope})</span></div>
+      <div class="hv-stat"><b>${area.listingCount ?? 0}</b><span>Listings (${areaScope})</span></div>
+      <div class="hv-stat"><b>${area.avgDaysOnMarket != null ? area.avgDaysOnMarket + "d" : "—"}</b><span>Avg DOM</span></div>
+    </div>
+
+    <h4 class="hv-subtitle">Comparable homes</h4>
+    <p class="pipeline-tip" style="margin:0 0 8px;">${compsNote}</p>
+    ${comps.length ? `<div class="hv-comp-grid">${comps.map(c => `
+      <div class="hv-comp-card">
+        <div class="hv-comp-card__price">${moneyFmt(c.price)}</div>
+        <div>${esc(c.address || c.city)}</div>
+        <div class="hv-comp-card__meta">${esc(c.city)}, ${esc(c.state)} · ${Number(c.sqft).toLocaleString()} sqft · $${c.pricePerSqft}/sqft</div>
+        <div class="hv-comp-card__meta">${c.bedrooms ?? "—"} bd · ${c.bathrooms ?? "—"} ba</div>
+      </div>`).join("")}</div>` : `<p class="agent-empty">No comps found — try a major city in the state.</p>`}
+
+    <h4 class="hv-subtitle">Feature adjustments</h4>
+    <table class="agent-table agent-table--compact"><thead><tr><th>Factor</th><th>Detail</th><th>Impact</th></tr></thead><tbody>${adjRows}</tbody></table>
+
+    <h4 class="hv-subtitle">Area price trend</h4>
+    <div data-hv-trend-summary class="hv-trend-summary"></div>
+    <div class="hv-trend sell-trend"><canvas id="hvTrendChart" height="180"></canvas><div id="hvTrendFallback" data-trend-fallback class="agent-empty" style="display:none;"></div></div>
+
+    <div class="hv-actions">
+      <button type="button" class="btn btn--primary btn-sm" id="hvCreateListing">Create listing from estimate</button>
+      <a class="btn btn--ghost btn-sm" href="#/leads">View seller leads</a>
+    </div>
+  `;
+
+  resultsEl.querySelector("#hvCreateListing")?.addEventListener("click", () => {
+    const params = new URLSearchParams();
+    if (input.city) params.set("city", input.city);
+    if (input.state) params.set("state", input.state);
+    if (input.sqft) params.set("sqft", input.sqft);
+    if (input.bedrooms) params.set("bedrooms", input.bedrooms);
+    if (input.bathrooms) params.set("bathrooms", input.bathrooms);
+    if (input.year_built) params.set("year_built", input.year_built);
+    if (input.property_type) params.set("type", input.property_type);
+    if (data.estimatedValue) params.set("price", data.estimatedValue);
+    location.hash = `#/listings/new?${params.toString()}`;
+  });
+
+  renderHvTrendChart(resultsEl, data.marketTrend);
+}
+
+async function renderHvTrendChart(resultsEl, trend) {
+  const summaryEl = resultsEl.querySelector("[data-hv-trend-summary]");
+  if (trend?.available && trend.summary && summaryEl) {
+    const s = trend.summary;
+    summaryEl.innerHTML = `
+      <span class="hv-trend-label">${esc(trend.label || "Area trend")}${trend.scope === "regional" ? " · regional benchmark" : ""}</span>
+      <span class="hv-trend-growth hv-trend-growth--${s.trend}">${s.growthPercent >= 0 ? "+" : ""}${s.growthPercent}%</span>
+      <span class="hv-trend-prices">$${s.startPrice} → $${s.endPrice}/sqft</span>`;
+  }
+
+  const canvas = resultsEl.querySelector("#hvTrendChart");
+  const fallback = resultsEl.querySelector("[data-trend-fallback]");
+  if (!trend?.available || !trend.series?.length) {
+    if (canvas) canvas.style.display = "none";
+    if (fallback) {
+      fallback.style.display = "block";
+      fallback.textContent = "No trend history for this city — estimate uses statewide sale data.";
+    }
+    return;
+  }
+
+  const ok = await ensureChartJs();
+  if (!ok || !canvas) {
+    if (fallback) { fallback.style.display = "block"; fallback.textContent = "Chart unavailable."; }
+    return;
+  }
+  if (fallback) fallback.style.display = "none";
+  const isLight = document.documentElement.classList.contains("light");
+  new Chart(canvas, {
+    type: "line",
+    data: {
+      labels: trend.series.map(p => p.label),
+      datasets: [{ label: "$/sqft", data: trend.series.map(p => p.pricePerSqft), borderColor: "#7c5cff", backgroundColor: "rgba(124,92,255,0.1)", fill: true, tension: 0.35, pointRadius: 3 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 9 }, color: isLight ? "#6b7280" : "#888" } },
+        y: { ticks: { font: { size: 9 }, color: isLight ? "#6b7280" : "#888", callback: v => "$" + v } },
+      },
+    },
+  });
+}
+
+async function loadMarketComparison(el) {
+  const container = el.querySelector("#hvMarketCompare");
+  if (!container) return;
+  try {
+    const data = await apiFetch("/api/agent/analytics/market-comparison");
+    const rows = data.comparisons || [];
+    if (!rows.length) {
+      container.innerHTML = `<p class="agent-empty">No market comparison data available yet.</p>`;
+      return;
+    }
+    container.innerHTML = `<table class="agent-table">
+      <thead><tr><th>Listing</th><th>Listing $/sqft</th><th>Market $/sqft</th><th>Diff</th></tr></thead>
+      <tbody>${rows.map(r => {
+        const diff = r.listing_price_sqft - r.market_price_sqft;
+        const diffClass = diff > 0 ? "hv-diff--high" : diff < 0 ? "hv-diff--low" : "";
+        return `<tr>
+          <td>${esc(r.city)}, ${esc(r.state)}</td>
+          <td>$${r.listing_price_sqft}</td>
+          <td>$${r.market_price_sqft}</td>
+          <td class="${diffClass}">${diff >= 0 ? "+" : ""}$${diff}</td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>`;
+  } catch {
+    container.innerHTML = `<p class="agent-empty">Could not load market comparison.</p>`;
+  }
+}
+
+async function loadSellerLeads(el) {
+  const listEl = el.querySelector("#hvLeadsList");
+  try {
+    const data = await apiFetch("/api/agent/leads");
+    const sellers = (data.leads || []).filter(l => l.source === "seller_valuation");
+    if (sellers.length === 0) {
+      listEl.innerHTML = `
+        <div class="hv-leads-empty">
+          <p><b>No seller leads yet</b></p>
+          <p class="agent-empty">When homeowners use <a href="/" target="_blank" rel="noopener">What's My Home Worth?</a> on the customer site and click "Talk to an agent," they'll show up here and in your Clients pipeline with a <span class="seller-tag">Seller</span> badge.</p>
+          <ul class="hv-leads-tips">
+            <li>Run an estimate above while on a call with a homeowner</li>
+            <li>Use <b>Create listing from estimate</b> to start a new listing pre-filled with their details</li>
+            <li>Check the Clients board for seller-tagged leads</li>
+          </ul>
+        </div>`;
+      return;
+    }
+    listEl.innerHTML = `<table class="agent-table">
+      <thead><tr><th>Name</th><th>Property</th><th>Estimate</th><th>Since</th><th></th></tr></thead>
+      <tbody>${sellers.map(l => {
+        const p = l.seller_property || {};
+        return `<tr>
+          <td>${esc(l.user_name)}</td>
+          <td>${esc(p.city || "")}, ${esc(p.state || "")}${p.sqft ? ` · ${Number(p.sqft).toLocaleString()} sqft` : ""}</td>
+          <td>${l.seller_estimate ? moneyFmt(l.seller_estimate) : "—"}</td>
+          <td>${fmtDate(l.created_at)}</td>
+          <td><a class="btn btn--ghost btn-sm" href="#/leads?open=${l._id}">View</a></td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>`;
+  } catch {
+    listEl.innerHTML = `<p class="agent-empty">Failed to load seller leads.</p>`;
+  }
 }
 
 function esc(str) {
