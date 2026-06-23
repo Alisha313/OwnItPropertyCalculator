@@ -1,8 +1,6 @@
 # OwnIt Property Calculator
 
-A full-stack property platform for browsing listings, running mortgage and rental calculators, estimating home values, and managing leads through an agent CRM. Built a student-friendly real estate web application.
-
-The customer site is a vanilla JavaScript SPA served by the Express backend. The agent portal is a separate SPA on the same server.
+A full-stack property platform for browsing listings, running mortgage and rental calculators, estimating home values, and managing leads through an agent CRM. The customer site is a vanilla JavaScript SPA served by the Express backend. The agent portal is a separate SPA on the same server.
 
 ---
 
@@ -31,13 +29,14 @@ Use the **backend on port 3000** — not the Vite dev server in `frontend/` (tha
 | Listing detail | `#/listing/:id` | Photos, stats, mortgage/rental shortcuts, agent chat, book a viewing |
 | Auth | `#/auth` | Register and login (JWT stored in `localStorage`) |
 | Subscription | `#/subscription` | Trial, plans, payment method (demo), appointments |
-| Agent chat | `#/agent-chat` | Direct messaging with a human agent (subscription required) |
+| Agent chat | `#/agent-chat` | Direct messaging with a human agent (see access rules below) |
 | Contact | `#/contact` | Support info |
 
 **Also included**
 
 - Light / dark theme (persisted in `localStorage`)
 - Floating AI chat widget (Groq or OpenAI) with map, trends, and valuation tools
+- Full-page human agent chat UI with message bubbles and live status
 - Price-reduction badges on discounted listings
 - Leaflet map with state choropleth and listing markers
 - Chart.js market trend charts on listing and sell pages
@@ -48,13 +47,25 @@ Use the **backend on port 3000** — not the Vite dev server in `frontend/` (tha
 |------|-------|-------------|
 | Dashboard | `#/` | Stats, action queue, recent leads |
 | Clients | `#/leads` | Drag-and-drop CRM pipeline |
-| Inbox | `#/chats` | AI and human customer conversations |
+| Inbox | `#/chats` | AI and human customer conversations (human chats prioritized) |
 | Listings | `#/listings` | Manage sale/rental inventory, apply price reductions |
 | Home Values | `#/home-values` | Run valuations, view seller leads, market comparison |
 | Showings | `#/appointments` | Calendar and viewing requests from customers |
 | Settings | `#/settings` | Agent profile |
 
 Seller leads from `#/sell` appear in the pipeline with a **Seller** tag and property details in the lead drawer.
+
+---
+
+## Chat and access
+
+| Feature | Access |
+|---------|--------|
+| **AI chat widget** | 7-day free access per account (starts on first use), then paid subscription |
+| **Human agent chat** (`#/agent-chat`) | 30-day trial on registration, active subscription, or the same 7-day free window |
+| **Registration** | New customers automatically receive a 30-day trial (no payment required) |
+
+Human chat sessions appear in the agent **Inbox** (`#/chats`) with `session_type: human`. Agents reply from the portal; customers see replies on `#/agent-chat` (auto-refreshes every 8 seconds).
 
 ---
 
@@ -90,7 +101,11 @@ OwnItPropertyCalculator/
 │   │   ├── db/mongo.js     # MongoDB connection, seed data, indexes
 │   │   ├── services/
 │   │   │   └── valuationService.js
-│   │   └── routes/         # auth, listings, chat, ai, subscriptions, agent/*
+│   │   ├── utils/
+│   │   │   ├── chatAccessUtils.js   # AI + human chat access rules
+│   │   │   ├── userQuery.js         # ObjectId / string user ID lookups
+│   │   │   └── discountUtils.js
+│   │   └── routes/         # auth, listings, chat, human-chat, ai, subscriptions, agent/*
 │   └── package.json
 ├── frontend/               # Unused Vite/React scaffold (not the main app)
 ├── CODE_REVIEW.md          # Code review notes
@@ -144,8 +159,14 @@ Open [http://localhost:3000](http://localhost:3000). The server seeds sample lis
 ### 4. Agent access
 
 1. Open [http://localhost:3000/agent.html](http://localhost:3000/agent.html)
-2. Register an agent account from the login screen
-3. Use the portal to manage leads, listings, and home-value estimates
+2. Register an agent account from the login screen (use role `agent` or register via the agent portal)
+3. Use the portal to manage leads, listings, inbox conversations, and home-value estimates
+
+### 5. Test human agent chat
+
+1. Register or log in on the customer site
+2. Go to `#/agent-chat` and send a message
+3. Open the agent portal **Inbox** — the human session should appear at the top
 
 ---
 
@@ -157,7 +178,7 @@ Open [http://localhost:3000](http://localhost:3000). The server seeds sample lis
 | `/api/listings` | Public listings (filter, map, detail) |
 | `/api/subscriptions` | Plans, trial, billing (demo) |
 | `/api/chat` | AI chat session and messages (incl. SSE stream) |
-| `/api/human-chat` | Customer ↔ agent messaging |
+| `/api/human-chat` | Customer ↔ human agent messaging |
 | `/api/appointments` | Viewing requests |
 | `/api/ai` | Valuation, market trends, home-value estimate, seller lead |
 | `/api/agent/*` | Dashboard, leads, listings, discounts, chats, appointments, analytics, etc. |
@@ -167,13 +188,28 @@ Open [http://localhost:3000](http://localhost:3000). The server seeds sample lis
 - `POST /api/ai/home-value` — public estimate from city, state, sqft, beds/baths, etc.
 - `POST /api/ai/home-value/request-agent` — authenticated; creates a seller lead for agents
 
+**Human chat endpoints**
+
+- `GET /api/human-chat/session` — get or create session, returns messages and access status
+- `POST /api/human-chat/message` — send a message to the agent team
+
 ---
 
 ## Development notes
 
-- **Routing:** Hash-based (`#/sales`, `#/sell`, …). Initial `render()` runs at the end of `app.js` so sell-page helpers load first.
+- **Routing:** Hash-based (`#/sales`, `#/sell`, …). Initial `render()` runs at the end of `app.js` so page helpers load first.
 - **Static assets:** Served from `/assets` by Express; customer pages load `assets/app.js` as `type="module"`.
 - **Theme:** `html.light` / `html.dark` on `<html>`; shared between customer and agent sites.
+- **User IDs:** Subscriptions and chat sessions store MongoDB ObjectIds; JWT carries string IDs. Lookups use `userIdQuery` for compatibility.
 - **Tests:** No automated test suite in the repo yet; see `CODE_REVIEW.md` for review notes.
 
+---
 
+## Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| `git push` rejected (remote has new commits) | `git pull --rebase origin main` then `git push origin main` |
+| Customer chat says subscription required | Log out and back in; confirm backend is running on port 3000 |
+| Agent inbox shows “Unknown” user | Human sessions use ObjectId `user_id`; restart backend after latest updates |
+| AI chat slow | Set `GROQ_API_KEY` in `.env`; streaming endpoint is `/api/chat/message/stream` |
