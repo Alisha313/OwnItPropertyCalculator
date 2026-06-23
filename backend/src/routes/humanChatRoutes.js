@@ -10,6 +10,8 @@
 import express from "express";
 import { mongo, connectToMongoDB } from "../db/mongo.js";
 import { authenticateToken } from "./authRoutes.js";
+import { hasHumanChatAccess, resolveUserId } from "../utils/chatAccessUtils.js";
+import { userIdQuery } from "../utils/userQuery.js";
 
 const router = express.Router();
 
@@ -21,43 +23,30 @@ async function ensureInit() {
   }
 }
 
-async function hasLiveSubscription(userId) {
-  const sub = await mongo.subscriptions().findOne(
-    { user_id: userId, status: { $in: ["active", "trial"] } },
-    { sort: { updated_at: -1 } }
-  );
-  if (!sub) return false;
-  if (sub.status === "trial" && sub.trial_end) {
-    return new Date(sub.trial_end) > new Date();
-  }
-  if (sub.status === "active" && sub.subscription_end) {
-    return new Date(sub.subscription_end) > new Date();
-  }
-  return sub.status === "active" || sub.status === "trial";
-}
-
 // GET /api/human-chat/session
 router.get("/session", authenticateToken, async (req, res) => {
   try {
     await ensureInit();
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-    const hasAccess = await hasLiveSubscription(req.user.id);
-    if (!hasAccess) {
+    const access = await hasHumanChatAccess(req.user.id, req.subscription);
+    if (!access.hasAccess) {
       return res.json({
         hasAccess: false,
-        message: "An active trial or subscription is required to chat with an agent.",
+        message: access.message,
       });
     }
 
+    const storedUserId = resolveUserId(req.user.id);
+
     let session = await mongo.chat_sessions().findOne({
-      user_id: req.user.id,
+      ...userIdQuery(req.user.id),
       session_type: "human",
     });
 
     if (!session) {
       const result = await mongo.chat_sessions().insertOne({
-        user_id: req.user.id,
+        user_id: storedUserId,
         session_type: "human",
         started_at: new Date().toISOString(),
         total_messages: 1,
@@ -73,10 +62,10 @@ router.get("/session", authenticateToken, async (req, res) => {
         created_at: new Date().toISOString(),
       });
 
-      const existingLead = await mongo.leads().findOne({ user_id: req.user.id });
+      const existingLead = await mongo.leads().findOne(userIdQuery(req.user.id));
       if (!existingLead) {
         await mongo.leads().insertOne({
-          user_id: req.user.id,
+          user_id: storedUserId,
           user_name: req.user.name || "Unknown",
           user_email: req.user.email || "",
           source_listing_id: null,
@@ -94,6 +83,8 @@ router.get("/session", authenticateToken, async (req, res) => {
 
     res.json({
       hasAccess: true,
+      accessSource: access.accessSource,
+      daysRemaining: access.daysRemaining,
       sessionId: session._id.toString(),
       messages,
     });
@@ -109,10 +100,10 @@ router.post("/message", authenticateToken, async (req, res) => {
     await ensureInit();
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-    const hasAccess = await hasLiveSubscription(req.user.id);
-    if (!hasAccess) {
+    const access = await hasHumanChatAccess(req.user.id, req.subscription);
+    if (!access.hasAccess) {
       return res.status(403).json({
-        error: "An active trial or subscription is required to chat with an agent.",
+        error: access.message,
         upgradeRequired: true,
       });
     }
@@ -122,14 +113,16 @@ router.post("/message", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Message cannot be empty" });
     }
 
+    const storedUserId = resolveUserId(req.user.id);
+
     let session = await mongo.chat_sessions().findOne({
-      user_id: req.user.id,
+      ...userIdQuery(req.user.id),
       session_type: "human",
     });
 
     if (!session) {
       const result = await mongo.chat_sessions().insertOne({
-        user_id: req.user.id,
+        user_id: storedUserId,
         session_type: "human",
         started_at: new Date().toISOString(),
         total_messages: 0,
@@ -150,10 +143,10 @@ router.post("/message", authenticateToken, async (req, res) => {
       { $inc: { total_messages: 1 } }
     );
 
-    const existingLead = await mongo.leads().findOne({ user_id: req.user.id });
+    const existingLead = await mongo.leads().findOne(userIdQuery(req.user.id));
     if (!existingLead) {
       await mongo.leads().insertOne({
-        user_id: req.user.id,
+        user_id: storedUserId,
         user_name: req.user.name || "Unknown",
         user_email: req.user.email || "",
         source_listing_id: listing_id || null,

@@ -16,6 +16,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { mongo, connectToMongoDB, seedDatabase, getObjectId } from "../db/mongo.js";
+import { userIdQuery } from "../utils/userQuery.js";
 
 const router = express.Router();
 
@@ -60,7 +61,7 @@ function generateToken(user) {
 async function loadSubscriptionSnapshot(userId) {
   const subscription = await mongo.subscriptions()
     .findOne(
-      { user_id: userId },
+      { ...userIdQuery(userId) },
       { sort: { updated_at: -1, created_at: -1 } }
     );
 

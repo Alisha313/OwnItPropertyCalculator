@@ -18,6 +18,7 @@ import express from "express";
 import OpenAI from "openai";
 import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
 import { authenticateToken } from "./authRoutes.js";
+import { userIdQuery, resolveUserId } from "../utils/userQuery.js";
 
 const router = express.Router();
 
@@ -143,7 +144,7 @@ function isPaidFromSubscription(subscription) {
 
 async function hasPaidSubscription(userId) {
   const subscription = await mongo.subscriptions().findOne(
-    { user_id: userId, status: "active" },
+    { ...userIdQuery(userId), status: "active" },
     { sort: { updated_at: -1 } }
   );
   return isPaidFromSubscription(subscription);
@@ -151,7 +152,10 @@ async function hasPaidSubscription(userId) {
 
 async function checkChatAccess(userId, subscriptionSnapshot) {
   const session = await mongo.chat_sessions().findOne(
-    { user_id: userId, $or: [{ session_type: "ai" }, { session_type: { $exists: false } }] },
+    {
+      ...userIdQuery(userId),
+      $or: [{ session_type: "ai" }, { session_type: { $exists: false } }],
+    },
     { sort: { started_at: -1 } }
   );
 
@@ -184,7 +188,7 @@ async function ensureChatSession(access, userId) {
   freeAccessEnds.setDate(freeAccessEnds.getDate() + 7);
 
   const result = await mongo.chat_sessions().insertOne({
-    user_id: userId,
+    user_id: resolveUserId(userId),
     session_type: "ai",
     started_at: new Date().toISOString(),
     free_access_ends: freeAccessEnds.toISOString(),
@@ -205,11 +209,11 @@ async function fetchChatHistory(sessionId) {
 }
 
 async function ensureLead(user, listingId) {
-  const existingLead = await mongo.leads().findOne({ user_id: user.id });
+  const existingLead = await mongo.leads().findOne(userIdQuery(user.id));
   if (existingLead) return;
 
   await mongo.leads().insertOne({
-    user_id: user.id,
+    user_id: resolveUserId(user.id),
     user_name: user.name || "Unknown",
     user_email: user.email || "",
     source_listing_id: listingId || null,
@@ -237,7 +241,7 @@ async function prepareChatMessage(req) {
   const sessionId = await ensureChatSession(access, req.user.id);
   const [history, existingLead] = await Promise.all([
     fetchChatHistory(sessionId),
-    mongo.leads().findOne({ user_id: req.user.id }, { projection: { _id: 1 } }),
+    mongo.leads().findOne(userIdQuery(req.user.id), { projection: { _id: 1 } }),
   ]);
 
   if (!existingLead) {
@@ -420,7 +424,7 @@ router.get("/history", authenticateToken, async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
     const session = await mongo.chat_sessions().findOne(
-      { user_id: req.user.id },
+      { ...userIdQuery(req.user.id) },
       { sort: { started_at: -1 } }
     );
 

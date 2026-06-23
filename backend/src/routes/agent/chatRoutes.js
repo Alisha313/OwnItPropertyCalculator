@@ -53,8 +53,8 @@ router.get("/", authenticateToken, requireAgent, async (req, res) => {
       ...s,
       _id: s._id.toString(),
       session_type: s.session_type || "ai",
-      user_name: userMap[s.user_id]?.name || "Unknown",
-      user_email: userMap[s.user_id]?.email || "",
+      user_name: userMap[String(s.user_id)]?.name || "Unknown",
+      user_email: userMap[String(s.user_id)]?.email || "",
     }));
 
     // Human (live) chats first so agents see customer requests at the top

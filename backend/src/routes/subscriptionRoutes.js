@@ -21,6 +21,7 @@ import express from "express";
 import { mongo, connectToMongoDB, seedDatabase } from "../db/mongo.js";
 import { authenticateToken } from "./authRoutes.js";
 import { ObjectId } from "mongodb";
+import { userIdQuery } from "../utils/userQuery.js";
 
 const router = express.Router();
 const TRIAL_DAYS = 30; // Duration of the free trial period in days
@@ -71,7 +72,7 @@ function daysUntil(date) {
 async function getLatestSubscription(userId) {
   return await mongo.subscriptions()
     .findOne(
-      { user_id: userId },
+      { ...userIdQuery(userId) },
       { sort: { updated_at: -1, created_at: -1 } }
     );
 }

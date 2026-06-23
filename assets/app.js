@@ -2680,37 +2680,97 @@ function AgentChatPage() {
   const listingId = qs.get("listing") || "";
 
   el.innerHTML = `
-    <div class="card" style="max-width:720px;margin:0 auto;">
-      <div class="card__body">
-        <a href="#/" class="back-link">← Back</a>
-        <h1 style="margin:8px 0 4px;">Chat with an Agent</h1>
-        <p class="card__muted" style="margin-bottom:16px;">Message a real OwnIt agent. Replies appear here — not from the AI assistant.</p>
-        <div id="humanChatMessages" class="human-chat-messages">Loading...</div>
-        <div id="humanChatInputRow" style="display:none;gap:8px;margin-top:12px;">
-          <input type="text" id="humanChatInput" class="chat-input" style="flex:1;" placeholder="Type your message..." />
-          <button type="button" id="humanChatSend" class="btn btn--primary">Send</button>
+    <div class="agent-chat">
+      <header class="agent-chat__header">
+        <a href="#/" class="agent-chat__back" aria-label="Back to home">←</a>
+        <div class="agent-chat__avatar" aria-hidden="true">🧑‍💼</div>
+        <div class="agent-chat__header-info">
+          <h1 class="agent-chat__title">Chat with an Agent</h1>
+          <p class="agent-chat__subtitle">Real OwnIt agents — not the AI assistant</p>
         </div>
-        <div id="humanChatStatus" style="margin-top:10px;"></div>
+        <span class="agent-chat__live" title="Agents reply during business hours">Live</span>
+      </header>
+
+      <div id="humanChatStatus" class="agent-chat__banner" hidden></div>
+
+      <div id="humanChatMessages" class="agent-chat__messages">
+        <div class="agent-chat__loading">
+          <span class="agent-chat__loading-dot"></span>
+          <span class="agent-chat__loading-dot"></span>
+          <span class="agent-chat__loading-dot"></span>
+          <p>Connecting you with our team…</p>
+        </div>
+      </div>
+
+      <div id="humanChatInputRow" class="agent-chat__composer" hidden>
+        <input
+          type="text"
+          id="humanChatInput"
+          class="agent-chat__input"
+          placeholder="Ask about buying, selling, or a listing…"
+          autocomplete="off"
+        />
+        <button type="button" id="humanChatSend" class="agent-chat__send" aria-label="Send message">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
       </div>
     </div>`;
 
   let humanMessages = [];
 
-  async function refreshHumanChat(notifyOnNew = false) {
-    const msgEl = el.querySelector("#humanChatMessages");
-    const inputRow = el.querySelector("#humanChatInputRow");
+  function formatMsgTime(iso) {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  }
+
+  function setBanner(html, variant = "") {
     const statusEl = el.querySelector("#humanChatStatus");
+    if (!html) {
+      statusEl.hidden = true;
+      statusEl.className = "agent-chat__banner";
+      statusEl.innerHTML = "";
+      return;
+    }
+    statusEl.hidden = false;
+    statusEl.className = `agent-chat__banner${variant ? ` agent-chat__banner--${variant}` : ""}`;
+    statusEl.innerHTML = html;
+  }
+
+  function renderEmptyState(type, content) {
+    const msgEl = el.querySelector("#humanChatMessages");
+    msgEl.innerHTML = `<div class="agent-chat__empty agent-chat__empty--${type}">${content}</div>`;
+  }
+
+  async function refreshHumanChat(notifyOnNew = false) {
+    const inputRow = el.querySelector("#humanChatInputRow");
 
     if (!currentUser) {
-      msgEl.innerHTML = `<p>Please <a href="#/auth">log in</a> to chat with an agent.</p>`;
+      renderEmptyState("login", `
+        <div class="agent-chat__empty-icon">🔐</div>
+        <h2>Sign in to chat</h2>
+        <p>Log in to message a licensed OwnIt agent about listings, offers, or your home search.</p>
+        <a class="btn btn--primary" href="#/auth">Log in or create account</a>
+      `);
+      inputRow.hidden = true;
+      setBanner("");
       return;
     }
 
     try {
       const data = await apiFetch("/api/human-chat/session");
       if (!data.hasAccess) {
-        msgEl.innerHTML = `<p>${data.message || "Subscription required."}</p>
-          <a class="btn btn--primary" href="#/subscription" style="margin-top:12px;display:inline-block;">View Plans</a>`;
+        renderEmptyState("locked", `
+          <div class="agent-chat__empty-icon">⏳</div>
+          <h2>Subscription required</h2>
+          <p>${escapeHtml(data.message || "Start a trial or subscription to chat with an agent.")}</p>
+          <a class="btn btn--primary" href="#/subscription">View plans</a>
+        `);
+        inputRow.hidden = true;
+        setBanner("");
         return;
       }
 
@@ -2718,16 +2778,34 @@ function AgentChatPage() {
       humanMessages = data.messages || [];
       const agentReplies = humanMessages.filter(m => m.role === "agent" && m.sent_by_agent);
       renderHumanMessages();
-      inputRow.style.display = "flex";
+      inputRow.hidden = false;
 
-      if (notifyOnNew && agentReplies.length > prevAgentCount) {
+      if (data.accessSource === "free_week" && data.daysRemaining != null) {
+        setBanner(
+          `<strong>${data.daysRemaining} day${data.daysRemaining !== 1 ? "s" : ""}</strong> left in your free week — chat with agents at no extra cost.`,
+          "info"
+        );
+      } else if (data.accessSource === "trial" && data.daysRemaining != null) {
+        setBanner(
+          `Trial active — <strong>${data.daysRemaining} day${data.daysRemaining !== 1 ? "s" : ""}</strong> remaining.`,
+          "trial"
+        );
+      } else if (notifyOnNew && agentReplies.length > prevAgentCount) {
         showToast("Your agent replied — new message below", "success");
-        statusEl.innerHTML = `<span style="color:#10b981;font-size:13px;">Agent replied just now.</span>`;
+        setBanner("Agent replied just now.", "success");
       } else if (agentReplies.length > 0) {
-        statusEl.innerHTML = `<span class="card__muted" style="font-size:13px;">You're connected with an agent. Messages update automatically.</span>`;
+        setBanner("You're connected. Messages update automatically.", "connected");
+      } else {
+        setBanner("An agent will reply in this thread — usually within a few hours.", "waiting");
       }
     } catch (err) {
-      msgEl.innerHTML = `<p style="color:#ef4444;">${err.message}</p>`;
+      renderEmptyState("error", `
+        <div class="agent-chat__empty-icon">⚠️</div>
+        <h2>Couldn't load chat</h2>
+        <p>${escapeHtml(err.message)}</p>
+      `);
+      inputRow.hidden = true;
+      setBanner("");
     }
   }
 
@@ -2739,14 +2817,28 @@ function AgentChatPage() {
   function renderHumanMessages() {
     const msgEl = el.querySelector("#humanChatMessages");
     if (humanMessages.length === 0) {
-      msgEl.innerHTML = "<p class='card__muted'>No messages yet. Say hello!</p>";
+      renderEmptyState("welcome", `
+        <div class="agent-chat__empty-icon">👋</div>
+        <h2>Say hello</h2>
+        <p>Ask about a property, schedule a showing, or get advice from a real agent.</p>
+      `);
       return;
     }
-    msgEl.innerHTML = humanMessages.map(m => `
-      <div class="human-chat-msg human-chat-msg--${m.role === "user" ? "user" : "agent"}">
-        <div class="human-chat-msg__label">${m.role === "user" ? "You" : (m.sent_by_agent ? "Agent" : "OwnIt Team")}</div>
-        <div>${m.content.replace(/</g, "&lt;")}</div>
-      </div>`).join("");
+
+    msgEl.innerHTML = humanMessages.map(m => {
+      const isUser = m.role === "user";
+      const label = isUser ? "You" : (m.sent_by_agent ? "Agent" : "OwnIt Team");
+      const time = formatMsgTime(m.created_at);
+      return `
+        <div class="agent-chat__bubble agent-chat__bubble--${isUser ? "user" : "agent"}">
+          <div class="agent-chat__bubble-meta">
+            <span class="agent-chat__bubble-label">${label}</span>
+            ${time ? `<time class="agent-chat__bubble-time">${time}</time>` : ""}
+          </div>
+          <div class="agent-chat__bubble-text">${escapeHtml(m.content)}</div>
+        </div>`;
+    }).join("");
+
     msgEl.scrollTop = msgEl.scrollHeight;
   }
 
@@ -2755,7 +2847,7 @@ function AgentChatPage() {
     const text = input.value.trim();
     if (!text) return;
     input.value = "";
-    humanMessages.push({ role: "user", content: text });
+    humanMessages.push({ role: "user", content: text, created_at: new Date().toISOString() });
     renderHumanMessages();
 
     try {
@@ -2763,17 +2855,18 @@ function AgentChatPage() {
         method: "POST",
         body: JSON.stringify({ message: text, listing_id: listingId || null }),
       });
-      el.querySelector("#humanChatStatus").innerHTML =
-        `<span class="card__muted" style="font-size:13px;">Sent — an agent will reply in this thread.</span>`;
+      setBanner("Message sent — an agent will reply in this thread.", "waiting");
     } catch (err) {
-      el.querySelector("#humanChatStatus").innerHTML =
-        `<span style="color:#ef4444;font-size:13px;">${err.message}</span>`;
+      setBanner(escapeHtml(err.message), "error");
     }
   }
 
   el.querySelector("#humanChatSend").addEventListener("click", sendHumanMessage);
   el.querySelector("#humanChatInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendHumanMessage();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendHumanMessage();
+    }
   });
 
   loadHumanChat();
