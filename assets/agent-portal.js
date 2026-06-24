@@ -511,15 +511,50 @@ function showLoginPage() {
 }
 
 function DashboardPage() {
+  const firstName = esc((currentUser?.name || "Agent").split(" ")[0]);
   const el = renderPageShell("Dashboard", "", `
-    <div class="agent-card"><h3 class="agent-card__title">Needs Attention</h3><div id="actionQueue" class="action-queue"><div class="agent-loading agent-loading--skeleton"></div></div></div>
-    <div class="dash-grid" id="dashStats">
-      <div class="dash-card"><div class="dash-card__label">New Leads</div><div class="dash-card__value" id="statLeads">—</div></div>
-      <div class="dash-card"><div class="dash-card__label">Live Chats</div><div class="dash-card__value" id="statChats">—</div></div>
-      <div class="dash-card"><div class="dash-card__label">Upcoming Viewings</div><div class="dash-card__value" id="statAppts">—</div></div>
-      <div class="dash-card"><div class="dash-card__label">Active Listings</div><div class="dash-card__value" id="statListings">—</div></div>
+    <div class="dash-hero">
+      <div class="dash-hero__glow" aria-hidden="true"></div>
+      <div class="dash-hero__content">
+        <p class="dash-hero__eyebrow">Your command center</p>
+        <h2 class="dash-hero__title">Welcome back, ${firstName}</h2>
+        <p class="dash-hero__sub">Track leads, chats, and showings at a glance.</p>
+      </div>
+      <div class="dash-hero__orb dash-hero__orb--1" aria-hidden="true"></div>
+      <div class="dash-hero__orb dash-hero__orb--2" aria-hidden="true"></div>
     </div>
-    <div class="agent-card"><h3 class="agent-card__title">Recent Leads</h3><div id="recentLeads"><div class="agent-loading agent-loading--skeleton"></div></div></div>`);
+    <div class="dash-grid" id="dashStats">
+      <div class="dash-card dash-card--leads">
+        <div class="dash-card__icon" aria-hidden="true">★</div>
+        <div class="dash-card__label">New Leads</div>
+        <div class="dash-card__value" id="statLeads">—</div>
+      </div>
+      <div class="dash-card dash-card--chats">
+        <div class="dash-card__icon" aria-hidden="true">💬</div>
+        <div class="dash-card__label">Live Chats</div>
+        <div class="dash-card__value" id="statChats">—</div>
+      </div>
+      <div class="dash-card dash-card--appts">
+        <div class="dash-card__icon" aria-hidden="true">📅</div>
+        <div class="dash-card__label">Upcoming Viewings</div>
+        <div class="dash-card__value" id="statAppts">—</div>
+      </div>
+      <div class="dash-card dash-card--listings">
+        <div class="dash-card__icon" aria-hidden="true">🏠</div>
+        <div class="dash-card__label">Active Listings</div>
+        <div class="dash-card__value" id="statListings">—</div>
+      </div>
+    </div>
+    <div class="dash-layout">
+      <div class="agent-card agent-card--priority">
+        <h3 class="agent-card__title"><span class="agent-card__title-dot"></span>Needs Attention</h3>
+        <div id="actionQueue" class="action-queue"><div class="agent-loading agent-loading--skeleton"></div></div>
+      </div>
+      <div class="agent-card">
+        <h3 class="agent-card__title"><span class="agent-card__title-dot agent-card__title-dot--cyan"></span>Recent Leads</h3>
+        <div id="recentLeads"><div class="agent-loading agent-loading--skeleton"></div></div>
+      </div>
+    </div>`);
   loadDashboardData(el);
   return el;
 }
